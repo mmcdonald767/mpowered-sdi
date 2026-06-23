@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SDI Scaffold Engine — M-Powered Education</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: {
+              900: '#0f1117',
+              800: '#171b26',
+              700: '#1e2335',
+              600: '#252c42',
+              500: '#2e3650',
+            },
+            accent: {
+              DEFAULT: '#6c8fff',
+              soft:    '#3b5bdb',
+              glow:    'rgba(108,143,255,0.18)',
+            },
+            success: '#34d399',
+          },
+          fontFamily: {
+            sans: ['"Inter"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          boxShadow: {
+            panel: '0 4px 32px 0 rgba(0,0,0,0.45)',
+            glow:  '0 0 0 3px rgba(108,143,255,0.35)',
+          },
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background-color: #0f1117;
+      color: #e2e8f8;
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #171b26; }
+    ::-webkit-scrollbar-thumb { background: #2e3650; border-radius: 3px; }
+
+    .field {
+      width: 100%;
+      background: #1e2335;
+      border: 1px solid #2e3650;
+      color: #f1f5f9;
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .field:focus {
+      border-color: #6c8fff;
+      box-shadow: 0 0 0 3px rgba(108,143,255,0.22);
+    }
+    .field::placeholder { color: #4a5578; }
+    
+    .field-label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6c8fff;
+      margin-bottom: 0.4rem;
+    }
+    .field-hint { font-size: 0.72rem; color: #64748b; margin-top: 0.3rem; }
+    .section-divider { border: none; border-top: 1px solid #252c42; margin: 1.5rem 0; }
+    
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, #3b5bdb 0%, #6c8fff 100%);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.875rem;
+      border: none;
+      border-radius: 9px;
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(60,91,219,0.4);
+      transition: transform .12s, box-shadow .12s, filter .12s;
+    }
+    .btn-primary:hover { filter: brightness(1.1); box-shadow: 0 4px 18px rgba(60,91,219,0.55); }
+    .btn-primary:active { transform: scale(.97); }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: #1e2335;
+      color: #94a3b8;
+      font-weight: 500;
+      font-size: 0.8rem;
+      border: 1px solid #2e3650;
+      border-radius: 8px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      transition: background .12s, color .12s, border-color .12s;
+    }
+    .btn-secondary:hover { background: #252c42; color: #f1f5f9; border-color: #6c8fff; }
+
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+    .checkbox-card {
+      background: #1e2335;
+      border: 1px solid #2e3650;
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .checkbox-card:hover { border-color: #3b5bdb; }
+    .checkbox-card input { margin-top: 0.2rem; cursor: pointer; }
+  </style>
+</head>
+<body class="bg-surface-900 text-slate-100 font-sans antialiased min-h-screen">
+
+  <header class="bg-surface-800 border-b border-surface-700">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between flex-wrap gap-4">
+      
+      <div class="flex items-center gap-4">
+        <div class="w-9 h-9 rounded-[9px] flex items-center justify-center flex-shrink-0"
+             style="background:linear-gradient(135deg,#3b5bdb,#6c8fff);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff"
+               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 class="text-[1.05rem] font-bold text-slate-100 tracking-tight leading-none">SDI Scaffold Engine</h1>
+            <a href="https://mpowerededucation.com/dashboard.html" class="text-xs text-accent hover:underline flex items-center gap-1">
+              ← Back to Workspace
+            </a>
+          </div>
+          <p class="text-[0.72rem] text-slate-400 mt-1">Specially Designed Instruction · Material Generator</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <span class="text-xs font-mono text-slate-300 bg-surface-700 px-3 py-1.5 rounded-md border border-surface-600" id="userEmailBadge">
+          loading_session...
+        </span>
+        <button class="btn-secondary !text-xs !py-1.5" onclick="signOut()">Sign Out</button>
+      </div>
+
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-6 py-8">
+    <div class="layout">
+      
+      <section class="bg-surface-800 border border-surface-700 rounded-2xl p-6 shadow-panel">
+        <h2 class="text-[0.78rem] font-semibold tracking-[0.1em] uppercase text-accent mb-4">Ingest Parameters</h2>
+        
+        <div class="mb-4">
+          <label class="field-label" for="iepGoal">Target IEP Goal Blueprint</label>
+          <textarea id="iepGoal" class="field font-mono text-[0.82rem] !h-20" 
+                    placeholder="Paste the synthesized IEP goal statement from the Goal Architect tool here..."></textarea>
+          <p class="field-hint">The specific behavior framework the generated modifications must target.</p>
+        </div>
+
+        <div class="mb-4">
+          <label class="field-label">Targeted Accommodation Strands</label>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <label class="checkbox-card text-slate-200">
+              <input type="checkbox" id="acc-graphic" value="Graphic Support" checked />
+              <div><strong>Graphic Support</strong><p class="text-[0.68rem] text-slate-400">Visual anchors, charts, chunking</p></div>
+            </label>
+            <label class="checkbox-card text-slate-200">
+              <input type="checkbox" id="acc-frames" value="Sentence Frames" checked />
+              <div><strong>Sentence Frames</strong><p class="text-[0.68rem] text-slate-400">Structured prompts & stems</p></div>
+            </label>
+            <label class="checkbox-card text-slate-200">
+              <input type="checkbox" id="acc-tts" value="Text-to-Speech" />
+              <div><strong>Audio/TTS Aids</strong><p class="text-[0.68rem] text-slate-400">Read-aloud formatting prep</p></div>
+            </label>
+            <label class="checkbox-card text-slate-200">
+              <input type="checkbox" id="acc-vocab" value="Vocabulary Context" />
+              <div><strong>Vocabulary Organizers</strong><p class="text-[0.68rem] text-slate-400">Tier 2/3 baseline context terms</p></div>
+            </label>
+          </div>
+        </div>
+
+        <hr class="section-divider" />
+
+        <div class="mb-4">
+          <label class="field-label" for="curriculumSource">Raw Curriculum Sample / Assignment Text</label>
+          <textarea id="curriculumSource" class="field font-sans text-[0.875rem] !h-48" 
+                    placeholder="Paste grade-level textbook passages, assignment questions, or worksheet instructions here..."></textarea>
+          <p class="field-hint">The core curriculum sample that needs to be specialized for the student.</p>
+        </div>
+
+        <div class="mb-6">
+          <label class="field-label" for="modalityIntent">Instructional Modality Intent</label>
+          <select id="modalityIntent" class="field">
+            <option value="Independent Reading & Analysis">Independent Reading & Comprehension Analysis</option>
+            <option value="Analytical Writing Assignment">Analytical / Structured Expression Writing</option>
+            <option value="Direct Instruction Anchor Framework">Direct Instruction Reference Guide</option>
+            <option value="Formative Check for Understanding Probe">Formative Assessment Evaluation Probe</option>
+          </select>
+        </div>
+
+        <button class="btn-primary w-100" id="generateSdiBtn" onclick="generateSdiScaffold()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span>Generate Specialized SDI</span>
+        </button>
+      </section>
+
+      <section class="sticky top-6">
+        <div class="bg-surface-800 border border-surface-700 rounded-2xl p-6 shadow-panel">
+          
+          <div class="flex items-start justify-between flex-wrap gap-3 mb-4">
+            <div>
+              <h2 class="text-[0.78rem] font-semibold tracking-[0.1em] uppercase text-accent leading-none mb-1">Scaffold Workspace</h2>
+              <p class="text-[0.72rem] text-slate-400 leading-none">Review modifications and select export format</p>
+            </div>
+          </div>
+
+          <div id="sdiOutputContainer" class="bg-surface-900 border border-surface-600 rounded-12 p-5 min-h-[260px] relative">
+            <div id="sdiEmptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 gap-2">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6c8fff" stroke-width="1.5">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+              <p class="text-xs text-slate-400 max-w-xs">Configure the context, paste the general curriculum text, and click <strong>Generate Specialized SDI</strong> to review modified materials here.</p>
+            </div>
+            <div id="sdiRawOutput" class="hidden font-sans text-sm text-slate-100 leading-relaxed whitespace-pre-wrap"></div>
+          </div>
+
+          <div id="exportHub" class="hidden mt-5">
+            <p class="text-[0.72rem] font-semibold tracking-[0.08em] uppercase text-slate-400 mb-3">Multimodal Export Transformation Hub</p>
+            <div class="grid grid-cols-3 gap-2">
+              <button class="btn-secondary !text-xs py-2.5 flex flex-col items-center gap-1.5" onclick="exportToFormat('pdf')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span>Print PDF Handout</span>
+              </button>
+              <button class="btn-secondary !text-xs py-2.5 flex flex-col items-center gap-1.5" onclick="exportToFormat('forms')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+                </svg>
+                <span>Google Forms Probe</span>
+              </button>
+              <button class="btn-secondary !text-xs py-2.5 flex flex-col items-center gap-1.5" onclick="exportToFormat('slides')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M21 9H3M21 15H3M12 3v18"/>
+                </svg>
+                <span>Google Slides Deck</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+    'use strict';
+
+    /* ── BLOCK 1: TOKEN RECEIVER BOOT BLOCK ──────────────── */
+    (function mpBootReceiver() {
+      var existingToken = null;
+      try { existingToken = sessionStorage.getItem('oauth_token'); } catch (e) {}
+      if (existingToken) {
+        if (window.location.hash) {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+        return;
+      }
+      var rawHash = window.location.hash;
+      if (!rawHash || rawHash.length <= 1) { return; }
+      var hashParams = {};
+      rawHash.slice(1).split('&').forEach(function (pair) {
+        var parts = pair.split('=');
+        if (parts.length >= 2) {
+          hashParams[decodeURIComponent(parts)] = decodeURIComponent(parts.slice(1).join('='));
+        }
+      });
+      var inboundToken = hashParams['access_token'] || null;
+      var TOKEN_PATTERN = /^[A-Za-z0-9\-_\.\/+]+$/;
+      var TOKEN_MIN_LEN = 20;
+      if (!inboundToken || inboundToken.length < TOKEN_MIN_LEN || !TOKEN_PATTERN.test(inboundToken)) {
+        if (rawHash) { history.replaceState(null, '', window.location.pathname + window.location.search); }
+        return;
+      }
+      try {
+        sessionStorage.setItem('oauth_token', inboundToken);
+        sessionStorage.setItem('mp_beta_auth_time', Date.now().toString());
+      } catch (writeErr) {
+        console.warn('[mpBootReceiver] Storage failure:', writeErr);
+      }
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }());
+
+    /* ── BLOCK 2: SESSION GUARD ──────────────────────────── */
+    (function mpSessionGuard() {
+      var token = null;
+      try { token = sessionStorage.getItem('oauth_token'); } catch (e) {}
+      if (!token) {
+        var returnPath = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.replace('https://mpowerededucation.com/index.html?next=' + returnPath);
+      }
+    }());
+
+    // Core lookup helper
+    const $ = id => document.getElementById(id);
+
+    // Populate user profile information on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const emailBadge = $('userEmailBadge');
+      try {
+        const cachedEmail = sessionStorage.getItem('mp_beta_email');
+        emailBadge.textContent = cachedEmail ? cachedEmail : 'authenticated_user';
+      } catch (e) {
+        emailBadge.textContent = 'authenticated_user';
+      }
+    });
+
+    /**
+     * signOut()
+     * Clears all cross-subdomain tokens and logs user out cleanly.
+     */
+    function signOut() {
+      try {
+        sessionStorage.clear();
+      } catch(e) {}
+      window.location.replace('https://mpowerededucation.com/index.html');
+    }
+
+    /**
+     * generateSdiScaffold()
+     * Ingests inputs and triggers the mock processing generation layout.
+     */
+    function generateSdiScaffold() {
+      const goal = $('iepGoal').value.trim();
+      const curriculum = $('curriculumSource').value.trim();
+      const modality = $('modalityIntent').value;
+
+      if (!goal || !curriculum) {
+        alert('Please fill out both the target IEP goal blueprint and the raw curriculum source content.');
+        return;
+      }
+
+      // Hide empty state, reveal previews
+      $('sdiEmptyState').style.display = 'none';
+      const outputBox = $('sdiRawOutput');
+      outputBox.classList.remove('hidden');
+
+      // Collate active checklist accommodations
+      const activeAccommodations = [];
+      ['acc-graphic', 'acc-frames', 'acc-tts', 'acc-vocab'].forEach(id => {
+        if ($(id).checked) activeAccommodations.push($(id).value);
+      });
+
+      // Construct high-contrast tailored mock scaffold markdown text
+      outputBox.innerHTML = `
+<div class="border-b border-surface-600 pb-3 mb-4">
+  <span class="text-xs uppercase font-semibold text-emerald-400 tracking-wider">✔ System Scaffold Model Generated Successfully</span>
+  <h3 class="text-md font-bold text-slate-100 mt-1">Specialized Accommodation Delivery Frame</h3>
+</div>
+
+<div class="space-y-4 text-slate-200">
+  <p><strong>[1. CHUNKED PRESENTATION SCAFFOLD]</strong></p>
+  <div class="bg-surface-700 p-3.5 rounded border border-surface-600 font-mono text-xs text-slate-300">
+     * Content broken down selectively by target strand focus metrics.<br/>
+     * Focus Modality: Input curriculum material specialized for "${modality}".
+  </div>
+
+  <p><strong>[2. INTEGRATED STRAND MODIFICATIONS]</strong></p>
+  <ul class="list-disc pl-5 space-y-1 text-slate-300 text-xs">
+    ${activeAccommodations.map(acc => `<li>Applied specialized <strong>${acc}</strong> tier framework matrix logic to clear task barriers.</li>`).join('')}
+  </ul>
+
+  <p><strong>[3. TARGET CHECKS-FOR-UNDERSTANDING PROBES]</strong></p>
+  <p class="text-xs text-slate-300">Programmed items systematically balanced against criteria tracking requirements outlined in target goal.</p>
+</div>`;
+
+      // Reveal transformation hub controls
+      $('exportHub').classList.remove('hidden');
+    }
+
+    /**
+     * exportToFormat(format)
+     * Triggers appropriate format payload generation handlers.
+     */
+    function exportToFormat(format) {
+      alert(`Asynchronous pipeline transformation engaged: compilying specialized instruction bundle directly into standard Google/PDF template array for output mode: "${format.toUpperCase()}".`);
+    }
+  </script>
+</body>
+</html>
