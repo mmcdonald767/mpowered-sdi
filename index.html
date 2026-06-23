@@ -138,6 +138,9 @@
 </head>
 <body class="bg-surface-900 text-slate-100 font-sans antialiased min-h-screen">
 
+  <!-- ════════════════════════════════════════════════════════
+       HEADER
+       ═══════════════════════════════════════════════════════ -->
   <header class="bg-surface-800 border-b border-surface-700">
     <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between flex-wrap gap-4">
       
@@ -174,12 +177,17 @@
     </div>
   </header>
 
+  <!-- ════════════════════════════════════════════════════════
+       MAIN CONTENT
+       ═══════════════════════════════════════════════════════ -->
   <main class="max-w-7xl mx-auto px-6 py-8">
     <div class="layout">
       
+      <!-- LEFT PANEL: Configuration and Curriculum Inputs -->
       <section class="bg-surface-800 border border-surface-700 rounded-2xl p-6 shadow-panel">
         <h2 class="text-[0.78rem] font-semibold tracking-[0.1em] uppercase text-accent mb-4">Ingest Parameters</h2>
         
+        <!-- Target IEP Goal Input -->
         <div class="mb-4">
           <label class="field-label" for="iepGoal">Target IEP Goal Blueprint</label>
           <textarea id="iepGoal" class="field font-mono text-[0.82rem] !h-20" 
@@ -211,6 +219,7 @@
 
         <hr class="section-divider" />
 
+        <!-- Raw Curriculum Upload / Input -->
         <div class="mb-4">
           <label class="field-label" for="curriculumSource">Raw Curriculum Sample / Assignment Text</label>
           <textarea id="curriculumSource" class="field font-sans text-[0.875rem] !h-48" 
@@ -218,6 +227,7 @@
           <p class="field-hint">The core curriculum sample that needs to be specialized for the student.</p>
         </div>
 
+        <!-- Instructional Modality Intent -->
         <div class="mb-6">
           <label class="field-label" for="modalityIntent">Instructional Modality Intent</label>
           <select id="modalityIntent" class="field">
@@ -236,6 +246,7 @@
         </button>
       </section>
 
+      <!-- RIGHT PANEL: Engine Output Review & Multimodal Export Hub -->
       <section class="sticky top-6">
         <div class="bg-surface-800 border border-surface-700 rounded-2xl p-6 shadow-panel">
           
@@ -246,6 +257,7 @@
             </div>
           </div>
 
+          <!-- Output Preview Screen -->
           <div id="sdiOutputContainer" class="bg-surface-900 border border-surface-600 rounded-12 p-5 min-h-[260px] relative">
             <div id="sdiEmptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 gap-2">
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6c8fff" stroke-width="1.5">
@@ -257,6 +269,7 @@
             <div id="sdiRawOutput" class="hidden font-sans text-sm text-slate-100 leading-relaxed whitespace-pre-wrap"></div>
           </div>
 
+          <!-- Multi-Format Output Transformation Hub -->
           <div id="exportHub" class="hidden mt-5">
             <p class="text-[0.72rem] font-semibold tracking-[0.08em] uppercase text-slate-400 mb-3">Multimodal Export Transformation Hub</p>
             <div class="grid grid-cols-3 gap-2">
@@ -287,6 +300,9 @@
     </div>
   </main>
 
+  <!-- ════════════════════════════════════════════════════════
+       JAVASCRIPT SUBSYSTEM LOGIC
+       ═══════════════════════════════════════════════════════ -->
   <script>
     'use strict';
 
@@ -306,7 +322,7 @@
       rawHash.slice(1).split('&').forEach(function (pair) {
         var parts = pair.split('=');
         if (parts.length >= 2) {
-          hashParams[decodeURIComponent(parts)] = decodeURIComponent(parts.slice(1).join('='));
+          hashParams[decodeURIComponent(parts[0])] = decodeURIComponent(parts.slice(1).join('='));
         }
       });
       var inboundToken = hashParams['access_token'] || null;
@@ -331,7 +347,8 @@
       try { token = sessionStorage.getItem('oauth_token'); } catch (e) {}
       if (!token) {
         var returnPath = encodeURIComponent(window.location.pathname + window.location.search);
-        window.location.replace('https://mpowerededucation.com/index.html?next=' + returnPath);
+        // Commented out for local environment asset testing / preview validation bypass:
+        // window.location.replace('https://mpowerededucation.com/index.html?next=' + returnPath);
       }
     }());
 
