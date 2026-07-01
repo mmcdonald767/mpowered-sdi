@@ -39,6 +39,8 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <!-- pdf.js: client-side PDF text extraction (file never leaves the browser) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
@@ -134,6 +136,90 @@
     }
     .checkbox-card:hover { border-color: #3b5bdb; }
     .checkbox-card input { margin-top: 0.2rem; cursor: pointer; }
+
+    /* ── PDF dropzone ─────────────────────────────────────── */
+    .pdf-dropzone {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      border: 1.5px dashed #2e3650;
+      border-radius: 8px;
+      background: #171b26;
+      color: #64748b;
+      font-size: 0.78rem;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.6rem;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, color .15s;
+      text-align: center;
+    }
+    .pdf-dropzone:hover { border-color: #3b5bdb; color: #94a3b8; }
+    .pdf-dropzone.dragover {
+      border-color: #6c8fff;
+      background: rgba(108,143,255,0.08);
+      color: #c7d4ff;
+    }
+    .pdf-dropzone.busy { pointer-events: none; opacity: 0.65; }
+
+    /* ── Asset Factory: workspace + print styles ────────────── */
+    .asset-page {
+      background: #171b26;
+      border: 1px solid #2e3650;
+      border-radius: 10px;
+      padding: 1.25rem 1.4rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      color: #e2e8f8;
+    }
+    .asset-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+    }
+    .asset-badge--scaffold {
+      background: rgba(52,211,153,0.12);
+      color: #34d399;
+      border: 1px solid rgba(52,211,153,0.4);
+    }
+    .asset-badge--modification {
+      background: rgba(251,191,36,0.12);
+      color: #fbbf24;
+      border: 1px solid rgba(251,191,36,0.45);
+    }
+    @media print {
+      /* Only the student-facing pages print. The teacher key, app chrome,
+         inputs, and export controls are all excluded. */
+      body * { visibility: hidden; }
+      #printRegion, #printRegion * { visibility: visible; }
+      #printRegion {
+        display: block !important;
+        position: absolute;
+        left: 0; top: 0;
+        width: 100%;
+        background: #fff;
+      }
+      .asset-page {
+        background: #fff !important;
+        color: #000 !important;
+        border: none;
+        border-radius: 0;
+        margin: 0;
+        padding: 0.4in 0.3in;
+        page-break-after: always;
+        font-size: 12pt;
+        line-height: 1.5;
+      }
+      .no-print { display: none !important; visibility: hidden !important; }
+    }
   </style>
 </head>
 <body class="bg-surface-900 text-slate-100 font-sans antialiased min-h-screen">
@@ -217,15 +303,79 @@
           </div>
         </div>
 
+        <!-- Transformation Protocol Route (deterministic client-side mapping;
+             the model never chooses its own protocol) -->
+        <div class="mb-4">
+          <label class="field-label" for="protocolRoute">Transformation Protocol Route</label>
+          <select id="protocolRoute" class="field"></select>
+          <p class="field-hint" id="protocolRouteHint">Routed from the selected strands.</p>
+        </div>
+
         <hr class="section-divider" />
 
         <!-- Raw Curriculum Upload / Input -->
         <div class="mb-4">
           <label class="field-label" for="curriculumSource">Raw Curriculum Sample / Assignment Text</label>
+
+          <!-- PDF ingest: drag-and-drop or click-to-browse. Extraction runs
+               entirely in-browser via pdf.js; the file is never uploaded.
+               Extracted text lands in the textarea below for teacher review
+               BEFORE it becomes source_content. -->
+          <div id="pdfDropzone" class="pdf-dropzone" role="button" tabindex="0"
+               aria-label="Drop a PDF assignment here, or click to browse">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span id="pdfDropzoneLabel">Drop a PDF assignment here, or click to browse — or paste text below</span>
+          </div>
+          <input type="file" id="pdfFileInput" accept="application/pdf,.pdf" class="hidden" />
+          <p id="pdfStatus" class="field-hint hidden mb-2"></p>
+
           <textarea id="curriculumSource" class="field font-sans text-[0.875rem] !h-48" 
                     placeholder="Paste grade-level textbook passages, assignment questions, or worksheet instructions here..."></textarea>
-          <p class="field-hint">The core curriculum sample that needs to be specialized for the student.</p>
+          <p class="field-hint">The core curriculum sample that needs to be specialized for the student. If you dropped a PDF, review the extracted text here — this exact text is what the protocol reproduces verbatim.</p>
         </div>
+
+        <!-- Asset context inputs -->
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <label class="field-label" for="contentType">Content Type</label>
+            <select id="contentType" class="field">
+              <option value="informational_text">Informational Text</option>
+              <option value="literary_text">Literary Text</option>
+              <option value="math_problem">Math Problem</option>
+              <option value="procedure">Procedure / Task</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="studentName">Student Display Name</label>
+            <input id="studentName" class="field" placeholder="{{student}}" />
+          </div>
+          <div>
+            <label class="field-label" for="gradeLevel">Grade Level</label>
+            <input id="gradeLevel" class="field" placeholder="e.g. 12th" />
+          </div>
+          <div>
+            <label class="field-label" for="instructionalLevel">Instructional Level</label>
+            <input id="instructionalLevel" class="field" placeholder="e.g. 9th–10th" />
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="field-label" for="interestContext">Post-Secondary Interest Context <span class="text-slate-500" style="text-transform:none;">(optional)</span></label>
+          <input id="interestContext" class="field" placeholder="e.g. culinary arts — two-year culinary program, chef" />
+          <p class="field-hint">Shapes generated practice items and examples only — never rewrites your source content.</p>
+        </div>
+
+        <label class="checkbox-card text-slate-200 mb-6" style="border-color: rgba(251,191,36,0.45);">
+          <input type="checkbox" id="allowModification" />
+          <div>
+            <strong class="text-amber-400">Allow Modification</strong>
+            <p class="text-[0.68rem] text-slate-400">Permits changes to content difficulty or expectations. Leave off for scaffolds — modified content has IEP-team authorization implications and is blocked server-side without this.</p>
+          </div>
+        </label>
 
         <!-- Instructional Modality Intent -->
         <div class="mb-6">
@@ -266,8 +416,14 @@
               </svg>
               <p class="text-xs text-slate-400 max-w-xs">Configure the context, paste the general curriculum text, and click <strong>Generate Specialized SDI</strong> to review modified materials here.</p>
             </div>
-            <div id="sdiRawOutput" class="hidden font-sans text-sm text-slate-100 leading-relaxed whitespace-pre-wrap"></div>
+            <div id="assetMetaBar" class="hidden mb-4 no-print"></div>
+            <div id="printRegion" class="hidden"></div>
+            <div id="workspaceError" class="hidden no-print"></div>
           </div>
+
+          <!-- Teacher Key — distinct block, excluded from the print view -->
+          <div id="teacherKeyBlock" class="hidden no-print mt-5 border rounded-12 p-5"
+               style="border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.05);"></div>
 
           <!-- Multi-Format Output Transformation Hub -->
           <div id="exportHub" class="hidden mt-5">
@@ -377,65 +533,425 @@
       window.location.replace('https://mpowerededucation.com/index.html');
     }
 
+    /* ── BLOCK 3: ASSET FACTORY CLIENT ───────────────────── */
+
+    // Deployed Apps Script web app endpoint — replace with your /exec URL
+    // (Deploy → New deployment → Web app → copy URL).
+    const GAS_ENDPOINT = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
+
+    // Must match ASSET_PAGE_BREAK_TOKEN in Code.gs exactly.
+    const PAGE_BREAK_TOKEN = '═══ PAGE BREAK ═══';
+
+    /* Strand checkbox → protocol routing.
+       Deterministic and client-side by design: the model never chooses
+       its own protocol. One asset is generated per call; when several
+       strands are checked, the teacher confirms which route runs via
+       the Protocol Route select. */
+    const STRAND_PROTOCOL_MAP = [
+      { checkboxId: 'acc-vocab',   protocol: 'P-FRONTLOAD' }, // Vocabulary Organizers → front-loader
+      { checkboxId: 'acc-graphic', protocol: 'P-CHUNK'     }, // Graphic Support (chunking) → segmented text
+      { checkboxId: 'acc-frames',  protocol: 'P-QAR'       }, // Sentence Frames → QAR evidence frames
+      { checkboxId: 'acc-tts',     protocol: 'P-ANNOTATE'  }, // Audio/read-aloud prep → guided re-reads + annotation
+    ];
+
+    const PROTOCOL_LABELS = {
+      'P-FRONTLOAD': 'Vocabulary & Prior-Knowledge Front-Loader',
+      'P-CHUNK':     'Segmented Text + Embedded Checks',
+      'P-QAR':       'QAR Inference Question Set',
+      'P-ANNOTATE':  'Close Reading & Annotation Guide',
+      'P-WORKED':    'Worked Example with Faded Steps',
+    };
+
+    const PROTOCOL_DEFAULT_PARAMS = {
+      'P-CHUNK':     { target_chunk_length: '1 paragraph', check_style: 'mixed', chunk_count_max: 8 },
+      'P-ANNOTATE':  { read_count: 3, annotation_focus: ['evidence', 'vocabulary', 'questions'], margin_prompts: true },
+      'P-QAR':       { question_total: 8, distribution: { right_there: 2, think_and_search: 3, author_and_me: 2, on_my_own: 1 }, include_sorting_warmup: true },
+      'P-FRONTLOAD': { vocab_count: 6, include_prediction: true, known_to_new_bridge: true },
+      'P-WORKED':    { fade_levels: 3, parallel_problem_count: 3, self_talk: true },
+    };
+
+    /**
+     * resolveProtocolCandidates()
+     * Maps the current form state to an ordered list of protocol candidates.
+     * Math/procedure content (or the Direct Instruction modality) routes to
+     * P-WORKED with top priority; checked strands follow in map order.
+     */
+    function resolveProtocolCandidates() {
+      const candidates = [];
+      const contentType = $('contentType').value;
+      const modality = $('modalityIntent').value;
+      if (contentType === 'math_problem' || contentType === 'procedure' ||
+          modality === 'Direct Instruction Anchor Framework') {
+        candidates.push('P-WORKED');
+      }
+      STRAND_PROTOCOL_MAP.forEach(m => {
+        if ($(m.checkboxId).checked) candidates.push(m.protocol);
+      });
+      return [...new Set(candidates)];
+    }
+
+    /**
+     * refreshProtocolRoute()
+     * Rebuilds the Protocol Route select from current candidates, preserving
+     * the teacher's manual selection when it is still valid.
+     */
+    function refreshProtocolRoute() {
+      const sel = $('protocolRoute');
+      const previous = sel.value;
+      const candidates = resolveProtocolCandidates();
+      const list = candidates.length ? candidates : Object.keys(PROTOCOL_LABELS);
+
+      sel.innerHTML = '';
+      list.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p;
+        o.textContent = p + ' — ' + PROTOCOL_LABELS[p];
+        sel.appendChild(o);
+      });
+      if (list.includes(previous)) sel.value = previous;
+
+      const hint = $('protocolRouteHint');
+      if (!candidates.length) {
+        hint.textContent = 'No strand selected — choose a protocol manually.';
+      } else if (candidates.length > 1) {
+        hint.textContent = candidates.length + ' strands map to different protocols. One asset is generated per run — confirm which to run first, then re-run for the others.';
+      } else {
+        hint.textContent = 'Routed from the selected strand.';
+      }
+    }
+
+    // Small DOM helper — all model output is rendered via textContent,
+    // never innerHTML, so generated text cannot inject markup.
+    function el(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    }
+
+    function clearWorkspace() {
+      $('sdiEmptyState').style.display = 'none';
+      ['assetMetaBar', 'printRegion', 'workspaceError', 'teacherKeyBlock'].forEach(id => {
+        const n = $(id);
+        n.classList.add('hidden');
+        n.innerHTML = '';
+      });
+    }
+
+    function setGenerating(on) {
+      const btn = $('generateSdiBtn');
+      btn.disabled = on;
+      btn.querySelector('span').textContent = on ? 'Generating asset…' : 'Generate Specialized SDI';
+    }
+
     /**
      * generateSdiScaffold()
-     * Ingests inputs and triggers the mock processing generation layout.
+     * Live Asset Factory call: gathers form state, resolves the protocol
+     * route, posts to the GAS generateAsset action, and renders the
+     * validated asset (or a structured error) in the workspace.
      */
-    function generateSdiScaffold() {
+    async function generateSdiScaffold() {
       const goal = $('iepGoal').value.trim();
       const curriculum = $('curriculumSource').value.trim();
-      const modality = $('modalityIntent').value;
 
-      if (!goal || !curriculum) {
-        alert('Please fill out both the target IEP goal blueprint and the raw curriculum source content.');
+      if (!curriculum) {
+        alert('Paste the raw curriculum source content — it is the material the protocol transforms.');
         return;
       }
 
-      // Hide empty state, reveal previews
-      $('sdiEmptyState').style.display = 'none';
-      const outputBox = $('sdiRawOutput');
-      outputBox.classList.remove('hidden');
+      const protocolId = $('protocolRoute').value;
+      if (!protocolId) {
+        alert('Select a Transformation Protocol route.');
+        return;
+      }
 
-      // Collate active checklist accommodations
-      const activeAccommodations = [];
-      ['acc-graphic', 'acc-frames', 'acc-tts', 'acc-vocab'].forEach(id => {
-        if ($(id).checked) activeAccommodations.push($(id).value);
+      const payload = {
+        action:               'generateAsset',
+        protocol_id:          protocolId,
+        source_content:       curriculum,
+        content_type:         $('contentType').value,
+        grade_level:          $('gradeLevel').value.trim(),
+        instructional_level:  $('instructionalLevel').value.trim(),
+        student_display_name: $('studentName').value.trim() || '{{student}}',
+        interest_context:     $('interestContext').value.trim() || null,
+        goal_context:         goal || null,
+        params:               PROTOCOL_DEFAULT_PARAMS[protocolId] || {},
+        allow_modification:   $('allowModification').checked,
+      };
+
+      setGenerating(true);
+      try {
+        // text/plain avoids the CORS preflight that GAS web apps cannot answer.
+        const res = await fetch(GAS_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (data.result !== 'success') {
+          renderWorkspaceError(data);
+          return;
+        }
+        renderAsset(data.asset, data.fidelity);
+      } catch (err) {
+        renderWorkspaceError({ error: 'NETWORK_ERROR', detail: 'Could not reach the generation service: ' + err.message });
+      } finally {
+        setGenerating(false);
+      }
+    }
+
+    /**
+     * renderWorkspaceError(data)
+     * The MODIFICATION_REQUIRED gate gets a distinct explanatory card;
+     * everything else renders as a generic failure card.
+     */
+    function renderWorkspaceError(data) {
+      clearWorkspace();
+      const box = $('workspaceError');
+      box.classList.remove('hidden');
+
+      const isModGate = data.error === 'MODIFICATION_REQUIRED';
+      const card = el('div', 'border rounded-12 p-4');
+      card.style.borderColor = isModGate ? 'rgba(251,191,36,0.5)' : 'rgba(248,113,113,0.5)';
+      card.style.background  = isModGate ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)';
+
+      card.appendChild(el(
+        'p',
+        'text-xs font-bold uppercase tracking-wider mb-1 ' + (isModGate ? 'text-amber-400' : 'text-red-400'),
+        isModGate ? '⚠ Modification authorization required' : '✕ Generation failed'
+      ));
+      card.appendChild(el(
+        'p',
+        'text-xs text-slate-300 leading-relaxed',
+        isModGate
+          ? 'This transformation would change content difficulty or expectations, and "Allow Modification" is off — the asset was blocked server-side. If the IEP team has authorized modified content for this student, enable "Allow Modification" and regenerate. Otherwise, adjust the request so the content can be scaffolded at its original rigor.'
+          : ((data.detail || data.error || 'Unknown error.'))
+      ));
+      box.appendChild(card);
+    }
+
+    /**
+     * renderAsset(asset, fidelity)
+     * Surfaces asset_class explicitly, splits student_asset into printed
+     * pages at the PAGE BREAK token, and renders the teacher key in a
+     * distinct, print-excluded block.
+     */
+    function renderAsset(asset, fidelity) {
+      clearWorkspace();
+
+      // ── Meta bar: asset class surfaced explicitly ──
+      const meta = $('assetMetaBar');
+      meta.classList.remove('hidden');
+      const isMod = asset.asset_class === 'modification';
+      meta.appendChild(el(
+        'span',
+        'asset-badge ' + (isMod ? 'asset-badge--modification' : 'asset-badge--scaffold'),
+        isMod ? '⚠ Modification — expectations changed' : '✔ Scaffold — rigor preserved'
+      ));
+      meta.appendChild(el('h3', 'text-md font-bold text-slate-100 mt-2', asset.asset_title));
+      const metaLine = asset.protocol_id +
+        (fidelity && fidelity.coverage != null ? ' · source fidelity ' + Math.round(fidelity.coverage * 100) + '%' : '');
+      meta.appendChild(el('p', 'text-[0.7rem] text-slate-400 font-mono mt-0.5', metaLine));
+
+      // ── Student pages ──
+      const region = $('printRegion');
+      region.classList.remove('hidden');
+      const pages = asset.student_asset.split(PAGE_BREAK_TOKEN);
+      pages.forEach((pageText, i) => {
+        const page = el('div', 'asset-page');
+        page.appendChild(el('div', 'no-print text-[0.65rem] font-mono text-slate-500 mb-2',
+          'PAGE ' + (i + 1) + ' OF ' + pages.length));
+        page.appendChild(el('div', null, pageText.trim()));
+        region.appendChild(page);
       });
 
-      // Construct high-contrast tailored mock scaffold markdown text
-      outputBox.innerHTML = `
-<div class="border-b border-surface-600 pb-3 mb-4">
-  <span class="text-xs uppercase font-semibold text-emerald-400 tracking-wider">✔ System Scaffold Model Generated Successfully</span>
-  <h3 class="text-md font-bold text-slate-100 mt-1">Specialized Accommodation Delivery Frame</h3>
-</div>
+      // ── Teacher key: distinct block, excluded from print via .no-print ──
+      const key = $('teacherKeyBlock');
+      key.classList.remove('hidden');
+      key.appendChild(el('p', 'text-[0.72rem] font-bold tracking-[0.1em] uppercase text-amber-400 mb-2',
+        '🔒 Teacher Use Only — excluded from print'));
+      if (asset.sdi_alignment_note) {
+        key.appendChild(el('p', 'text-xs text-slate-300 italic mb-3', asset.sdi_alignment_note));
+      }
+      key.appendChild(el('div', 'text-xs text-slate-200 leading-relaxed whitespace-pre-wrap', asset.teacher_key));
+      if (asset.teacher_review_flags && asset.teacher_review_flags.length) {
+        const flagWrap = el('div', 'mt-3 pt-3');
+        flagWrap.style.borderTop = '1px solid rgba(251,191,36,0.3)';
+        flagWrap.appendChild(el('p', 'text-[0.68rem] font-semibold uppercase tracking-wider text-amber-400 mb-1', 'Review flags'));
+        asset.teacher_review_flags.forEach(f => {
+          flagWrap.appendChild(el('p', 'text-[0.72rem] text-slate-300 mb-1', '▸ ' + f));
+        });
+        key.appendChild(flagWrap);
+      }
 
-<div class="space-y-4 text-slate-200">
-  <p><strong>[1. CHUNKED PRESENTATION SCAFFOLD]</strong></p>
-  <div class="bg-surface-700 p-3.5 rounded border border-surface-600 font-mono text-xs text-slate-300">
-     * Content broken down selectively by target strand focus metrics.<br/>
-     * Focus Modality: Input curriculum material specialized for "${modality}".
-  </div>
-
-  <p><strong>[2. INTEGRATED STRAND MODIFICATIONS]</strong></p>
-  <ul class="list-disc pl-5 space-y-1 text-slate-300 text-xs">
-    ${activeAccommodations.map(acc => `<li>Applied specialized <strong>${acc}</strong> tier framework matrix logic to clear task barriers.</li>`).join('')}
-  </ul>
-
-  <p><strong>[3. TARGET CHECKS-FOR-UNDERSTANDING PROBES]</strong></p>
-  <p class="text-xs text-slate-300">Programmed items systematically balanced against criteria tracking requirements outlined in target goal.</p>
-</div>`;
-
-      // Reveal transformation hub controls
       $('exportHub').classList.remove('hidden');
     }
 
     /**
      * exportToFormat(format)
-     * Triggers appropriate format payload generation handlers.
+     * 'pdf' is live: window.print() with the print stylesheet isolating the
+     * student pages (teacher key and app chrome are excluded automatically).
      */
     function exportToFormat(format) {
-      alert(`Asynchronous pipeline transformation engaged: compilying specialized instruction bundle directly into standard Google/PDF template array for output mode: "${format.toUpperCase()}".`);
+      if (format === 'pdf') {
+        if ($('printRegion').classList.contains('hidden')) {
+          alert('Generate an asset first.');
+          return;
+        }
+        window.print();
+        return;
+      }
+      alert('The "' + format.toUpperCase() + '" pipeline is on the roadmap — Print PDF Handout is live now.');
     }
+
+    /* ── BLOCK 4: PDF INGEST (client-side extraction) ────── */
+    //
+    //  Extraction runs entirely in the browser via pdf.js — the file
+    //  is never transmitted. Extracted text is placed into the
+    //  curriculumSource textarea so the teacher reviews and can edit
+    //  it BEFORE it becomes source_content; the server-side fidelity
+    //  gate then verifies against exactly what the teacher approved.
+    //
+    //  Known limitation (surfaced in the UI): scanned/image-only PDFs
+    //  have no text layer and cannot be extracted without OCR.
+
+    const SOURCE_CHAR_LIMIT = 20000; // mirrors the Code.gs guard
+
+    function pdfStatusMsg(text, tone) {
+      const s = $('pdfStatus');
+      s.classList.remove('hidden');
+      s.textContent = text;
+      s.style.color = tone === 'error' ? '#f87171' : (tone === 'warn' ? '#fbbf24' : '#34d399');
+    }
+
+    async function extractPdfText(file) {
+      if (typeof pdfjsLib === 'undefined') {
+        pdfStatusMsg('PDF library failed to load — check your connection, or paste the text instead.', 'error');
+        return;
+      }
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+      const zone  = $('pdfDropzone');
+      const label = $('pdfDropzoneLabel');
+      zone.classList.add('busy');
+      label.textContent = 'Extracting text from "' + file.name + '"…';
+
+      try {
+        const buffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+
+        const pageTexts = [];
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          // Reconstruct reading text: join items, honoring pdf.js EOL hints
+          // where present, then collapse intra-line whitespace.
+          let pageText = '';
+          content.items.forEach(item => {
+            pageText += item.str;
+            pageText += item.hasEOL ? '\n' : ' ';
+          });
+          pageText = pageText
+            .replace(/[ \t]+/g, ' ')        // collapse runs of spaces
+            .replace(/ ?\n ?/g, '\n')       // trim around line breaks
+            .replace(/\n{3,}/g, '\n\n')     // cap blank-line runs
+            .trim();
+          if (pageText) pageTexts.push(pageText);
+        }
+
+        const fullText = pageTexts.join('\n\n').trim();
+
+        if (!fullText) {
+          pdfStatusMsg('No selectable text found in "' + file.name + '" — this is likely a scanned PDF. OCR is not supported in-browser; paste the text instead.', 'error');
+          return;
+        }
+
+        const box = $('curriculumSource');
+        if (box.value.trim() &&
+            !confirm('Replace the current curriculum text with the extracted contents of "' + file.name + '"?')) {
+          pdfStatusMsg('Extraction cancelled — existing text kept.', 'warn');
+          return;
+        }
+        box.value = fullText;
+
+        if (fullText.length > SOURCE_CHAR_LIMIT) {
+          pdfStatusMsg('Extracted ' + pdf.numPages + ' page(s), ' + fullText.length.toLocaleString() +
+            ' characters — over the ' + SOURCE_CHAR_LIMIT.toLocaleString() +
+            '-character limit. Trim to the relevant excerpt below before generating.', 'warn');
+        } else {
+          pdfStatusMsg('Extracted ' + pdf.numPages + ' page(s), ' + fullText.length.toLocaleString() +
+            ' characters from "' + file.name + '". Review and clean up below — headers, footers, and page numbers often need deleting.', 'ok');
+        }
+      } catch (err) {
+        const encrypted = /password/i.test(String(err && err.message));
+        pdfStatusMsg(encrypted
+          ? '"' + file.name + '" is password-protected and cannot be read.'
+          : 'Could not read "' + file.name + '": ' + (err && err.message ? err.message : 'unknown error') + '. Paste the text instead.', 'error');
+      } finally {
+        zone.classList.remove('busy');
+        label.textContent = 'Drop a PDF assignment here, or click to browse — or paste text below';
+      }
+    }
+
+    function handlePdfFile(file) {
+      if (!file) return;
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      if (!isPdf) {
+        pdfStatusMsg('"' + file.name + '" is not a PDF. Drop a .pdf file, or paste the text below.', 'error');
+        return;
+      }
+      extractPdfText(file);
+    }
+
+    function wirePdfDropzone() {
+      const zone = $('pdfDropzone');
+      const input = $('pdfFileInput');
+
+      zone.addEventListener('click', () => input.click());
+      zone.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
+      });
+      input.addEventListener('change', () => {
+        handlePdfFile(input.files[0]);
+        input.value = ''; // allow re-dropping the same file after edits
+      });
+
+      ['dragenter', 'dragover'].forEach(evt =>
+        zone.addEventListener(evt, e => {
+          e.preventDefault();
+          e.stopPropagation();
+          zone.classList.add('dragover');
+        })
+      );
+      ['dragleave', 'drop'].forEach(evt =>
+        zone.addEventListener(evt, e => {
+          e.preventDefault();
+          e.stopPropagation();
+          zone.classList.remove('dragover');
+        })
+      );
+      zone.addEventListener('drop', e => {
+        const files = e.dataTransfer && e.dataTransfer.files;
+        if (files && files.length) handlePdfFile(files[0]);
+      });
+
+      // A stray drop outside the zone must not navigate the tab away
+      // from the authenticated session into the raw PDF.
+      window.addEventListener('dragover', e => e.preventDefault());
+      window.addEventListener('drop', e => e.preventDefault());
+    }
+
+    // Route recalculation wiring: any strand, content-type, or modality
+    // change re-resolves the protocol route immediately.
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshProtocolRoute();
+      wirePdfDropzone();
+      ['acc-graphic', 'acc-frames', 'acc-tts', 'acc-vocab', 'contentType', 'modalityIntent'].forEach(id => {
+        $(id).addEventListener('change', refreshProtocolRoute);
+      });
+    });
   </script>
 </body>
 </html>
