@@ -583,6 +583,10 @@
     // Most recently rendered asset — source for the optional printed key page.
     let _currentAsset = null;
 
+    // Name of the uploaded curriculum PDF (extension stripped) — used as
+    // the default filename when the printout is saved as a PDF.
+    let _sourceDocName = null;
+
     /* Strand checkbox → protocol routing.
        Deterministic and client-side by design: the model never chooses
        its own protocol. One asset is generated per call; when several
@@ -913,6 +917,26 @@
     }
 
     /**
+     * buildPrintFilename()
+     * Default save-as-PDF name: "[asset title] [grade] - SDI", e.g.
+     * "Exploring New Coasts- The Cyclops's Cave 10th - SDI".
+     * The generated asset title is preferred — it is short and human-
+     * readable — with the uploaded PDF's filename as fallback for the
+     * rare response missing a title. Illegal filename characters are
+     * replaced so every OS accepts the default without complaint.
+     */
+    function buildPrintFilename() {
+      const base = ((_currentAsset && _currentAsset.asset_title)
+        || _sourceDocName
+        || 'Curriculum').trim();
+      const grade = $('gradeLevel').value || '';
+      return (base + (grade ? ' ' + grade : '') + ' - SDI')
+        .replace(/[\\/:*?"<>|]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    /**
      * buildPrintHtml()
      * A complete, self-contained document for printing: white page,
      * black text, one .pg block per handout page, and nothing else.
@@ -934,7 +958,7 @@
       }
 
       return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'
-        + esc(_currentAsset.asset_title || 'Student Handout') + '</title><style>'
+        + esc(buildPrintFilename()) + '</title><style>'
         + '@page{margin:0.5in}'
         + 'html,body{margin:0;padding:0;background:#fff;color:#000}'
         + '.pg{white-space:pre-wrap;font:12pt/1.5 "Segoe UI","Segoe UI Symbol","Noto Sans Symbols 2",Arial,sans-serif;page-break-after:always}'
@@ -965,10 +989,17 @@
       fdoc.write(buildPrintHtml());
       fdoc.close();
 
+      // Chrome derives the save-as-PDF filename from the TOP-LEVEL page
+      // title even when a subframe prints, so swap it for the dialog's
+      // lifetime and restore it in cleanup.
+      const prevTitle = document.title;
+      document.title = buildPrintFilename();
+
       let cleaned = false;
       const cleanup = () => {
         if (cleaned) return;
         cleaned = true;
+        document.title = prevTitle;
         setTimeout(() => frame.remove(), 500);
       };
       frame.contentWindow.addEventListener('afterprint', cleanup);
@@ -1069,6 +1100,7 @@
           return;
         }
         box.value = fullText;
+        _sourceDocName = file.name.replace(/\.pdf$/i, '').trim();
 
         if (fullText.length > SOURCE_CHAR_LIMIT) {
           pdfStatusMsg('Extracted ' + pdf.numPages + ' page(s), ' + fullText.length.toLocaleString() +
