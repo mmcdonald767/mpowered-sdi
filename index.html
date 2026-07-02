@@ -219,40 +219,11 @@
       color: #fbbf24;
       border: 1px solid rgba(251,191,36,0.45);
     }
-    /* ── Print architecture ──────────────────────────────────
-       #printMount is a direct child of <body>, empty and display:none
-       on screen. renderAsset() clones the student pages into it. In
-       print, everything else at body level is display:none (which
-       removes its layout space entirely — visibility:hidden does not,
-       and left the dark app painting extra black pages), so the mount
-       is the only content the printer ever sees. */
-    #printMount { display: none; }
-
-    @media print {
-      @page { margin: 0.5in; }
-      html, body { background: #fff !important; height: auto !important; min-height: 0 !important; }
-      body > *:not(#printMount) { display: none !important; }
-      #printMount { display: block !important; background: #fff; }
-      #printMount .asset-page {
-        background: #fff !important;
-        color: #000 !important;
-        border: none;
-        border-radius: 0;
-        margin: 0;
-        padding: 0;
-        font-size: 12pt;
-        line-height: 1.5;
-        white-space: pre-wrap;
-        /* Symbol fallbacks: Inter lacks the ☐ ▶ ✎ glyphs in some print
-           rendering paths, which showed as empty tofu boxes on paper. */
-        font-family: 'Inter', 'Segoe UI Symbol', 'Noto Sans Symbols 2', 'Arial Unicode MS', system-ui, sans-serif;
-        page-break-after: always;
-      }
-      /* No forced break after the final page — it was printing one
-         extra blank sheet at the end of every handout. */
-      #printMount .asset-page:last-child { page-break-after: auto; }
-      .no-print { display: none !important; }
-    }
+    /* Printing no longer uses @media print rules against this document.
+       The app document is dark-themed, Tailwind-injected, and extension-
+       exposed — CSS isolation proved fragile twice in production. The
+       Print button instead builds a minimal white document in a hidden
+       iframe and prints that. See buildPrintHtml() / printAsset(). */
   </style>
 </head>
 <body class="bg-surface-900 text-slate-100 font-sans antialiased min-h-screen">
@@ -725,7 +696,6 @@
         n.classList.add('hidden');
         n.innerHTML = '';
       });
-      $('printMount').innerHTML = '';
       _currentAsset = null;
     }
 
@@ -859,14 +829,6 @@
         region.appendChild(page);
       });
 
-      // Mirror the pages into the body-level print mount. The on-screen
-      // preview keeps its dark styling; the print stylesheet targets only
-      // the mount's copies. Page-number labels carry .no-print and are
-      // suppressed automatically.
-      const mount = $('printMount');
-      mount.innerHTML = '';
-      region.querySelectorAll('.asset-page').forEach(p => mount.appendChild(p.cloneNode(true)));
-
       // ── Teacher key: distinct block, excluded from print via .no-print ──
       const key = $('teacherKeyBlock');
       key.classList.remove('hidden');
@@ -894,7 +856,6 @@
       cb.type = 'checkbox';
       cb.id = 'includeKeyInPrint';
       cb.style.marginTop = '0.15rem';
-      cb.addEventListener('change', syncTeacherKeyPrintPage);
       printRow.appendChild(cb);
       const cbText = el('div');
       cbText.appendChild(el('span', 'text-xs font-semibold text-slate-200 block', 'Include Teacher Key in printout'));
@@ -907,25 +868,12 @@
     }
 
     /**
-     * syncTeacherKeyPrintPage()
-     * Adds or removes the Teacher Key page in the print mount to match
-     * the checkbox. The page is built as plain text with a DO NOT
-     * DISTRIBUTE banner, so if it ever rides along with student copies
-     * it announces itself on paper. Because the base print rule puts a
-     * page break after every .asset-page except :last-child, appending
-     * or removing this page keeps break behavior correct automatically.
+     * buildTeacherKeyText()
+     * Plain-text Teacher Key page with a DO NOT DISTRIBUTE banner, so a
+     * key page that accidentally rides along with student copies
+     * announces itself on paper.
      */
-    function syncTeacherKeyPrintPage() {
-      const mount = $('printMount');
-      const existing = mount.querySelector('.teacher-key-print');
-      const cb = $('includeKeyInPrint');
-
-      if (!cb || !cb.checked) {
-        if (existing) existing.remove();
-        return;
-      }
-      if (existing || !_currentAsset) return;
-
+    function buildTeacherKeyText() {
       const lines = [
         '■ TEACHER KEY — TEACHER USE ONLY — DO NOT DISTRIBUTE TO STUDENTS ■',
         '',
@@ -940,24 +888,91 @@
         lines.push('', 'REVIEW FLAGS:');
         flags.forEach(f => lines.push('- ' + f));
       }
+      return lines.join('\n');
+    }
 
-      const page = el('div', 'asset-page teacher-key-print');
-      page.textContent = lines.join('\n');
-      mount.appendChild(page);
+    /**
+     * buildPrintHtml()
+     * A complete, self-contained document for printing: white page,
+     * black text, one .pg block per handout page, and nothing else.
+     * No Tailwind, no app CSS, no extension-injected styles can reach
+     * it — the black-page bugs came from printing inside the app
+     * document, and this removes that entire class of failure.
+     */
+    function buildPrintHtml() {
+      const esc = s => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      const pages = _currentAsset.student_asset
+        .split(PAGE_BREAK_TOKEN)
+        .map(p => '<div class="pg">' + esc(p.trim()) + '</div>');
+
+      const cb = $('includeKeyInPrint');
+      if (cb && cb.checked) {
+        pages.push('<div class="pg">' + esc(buildTeacherKeyText()) + '</div>');
+      }
+
+      return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'
+        + esc(_currentAsset.asset_title || 'Student Handout') + '</title><style>'
+        + '@page{margin:0.5in}'
+        + 'html,body{margin:0;padding:0;background:#fff;color:#000}'
+        + '.pg{white-space:pre-wrap;font:12pt/1.5 "Segoe UI","Segoe UI Symbol","Noto Sans Symbols 2",Arial,sans-serif;page-break-after:always}'
+        + '.pg:last-child{page-break-after:auto}'
+        + '</style></head><body>' + pages.join('') + '</body></html>';
+    }
+
+    /**
+     * printAsset()
+     * Renders buildPrintHtml() into a hidden same-origin iframe and
+     * prints the iframe's document. The teacher's "Include Teacher Key"
+     * checkbox is read at this moment, so what prints always matches
+     * what the checkbox says right now.
+     */
+    function printAsset() {
+      if (!_currentAsset) {
+        alert('Generate an asset first.');
+        return;
+      }
+
+      const frame = document.createElement('iframe');
+      frame.setAttribute('aria-hidden', 'true');
+      frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+      document.body.appendChild(frame);
+
+      const fdoc = frame.contentDocument || frame.contentWindow.document;
+      fdoc.open();
+      fdoc.write(buildPrintHtml());
+      fdoc.close();
+
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        setTimeout(() => frame.remove(), 500);
+      };
+      frame.contentWindow.addEventListener('afterprint', cleanup);
+
+      // Small delay lets the iframe finish layout before the dialog opens.
+      setTimeout(() => {
+        try {
+          frame.contentWindow.focus();
+          frame.contentWindow.print();
+        } catch (e) {
+          alert('Could not open the print dialog: ' + e.message);
+        }
+        // Safety-net cleanup if afterprint never fires (some browsers).
+        setTimeout(cleanup, 60000);
+      }, 150);
     }
 
     /**
      * exportToFormat(format)
-     * 'pdf' is live: window.print() with the print stylesheet isolating the
-     * student pages (teacher key and app chrome are excluded automatically).
+     * 'pdf' is live: prints via the isolated iframe pipeline (printAsset),
+     * which includes the Teacher Key page only when its checkbox is on.
      */
     function exportToFormat(format) {
       if (format === 'pdf') {
-        if (!$('printMount').children.length) {
-          alert('Generate an asset first.');
-          return;
-        }
-        window.print();
+        printAsset();
         return;
       }
       alert('The "' + format.toUpperCase() + '" pipeline is on the roadmap — Print PDF Handout is live now.');
@@ -1320,9 +1335,5 @@
       });
     });
   </script>
-  <!-- Print mount: screen-hidden, populated by renderAsset(), and the
-       only body-level element displayed under @media print. -->
-  <div id="printMount" aria-hidden="true"></div>
-
 </body>
 </html>
