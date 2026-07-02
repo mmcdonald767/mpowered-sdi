@@ -219,30 +219,39 @@
       color: #fbbf24;
       border: 1px solid rgba(251,191,36,0.45);
     }
+    /* ── Print architecture ──────────────────────────────────
+       #printMount is a direct child of <body>, empty and display:none
+       on screen. renderAsset() clones the student pages into it. In
+       print, everything else at body level is display:none (which
+       removes its layout space entirely — visibility:hidden does not,
+       and left the dark app painting extra black pages), so the mount
+       is the only content the printer ever sees. */
+    #printMount { display: none; }
+
     @media print {
-      /* Only the student-facing pages print. The teacher key, app chrome,
-         inputs, and export controls are all excluded. */
-      body * { visibility: hidden; }
-      #printRegion, #printRegion * { visibility: visible; }
-      #printRegion {
-        display: block !important;
-        position: absolute;
-        left: 0; top: 0;
-        width: 100%;
-        background: #fff;
-      }
-      .asset-page {
+      @page { margin: 0.5in; }
+      html, body { background: #fff !important; height: auto !important; min-height: 0 !important; }
+      body > *:not(#printMount) { display: none !important; }
+      #printMount { display: block !important; background: #fff; }
+      #printMount .asset-page {
         background: #fff !important;
         color: #000 !important;
         border: none;
         border-radius: 0;
         margin: 0;
-        padding: 0.4in 0.3in;
-        page-break-after: always;
+        padding: 0;
         font-size: 12pt;
         line-height: 1.5;
+        white-space: pre-wrap;
+        /* Symbol fallbacks: Inter lacks the ☐ ▶ ✎ glyphs in some print
+           rendering paths, which showed as empty tofu boxes on paper. */
+        font-family: 'Inter', 'Segoe UI Symbol', 'Noto Sans Symbols 2', 'Arial Unicode MS', system-ui, sans-serif;
+        page-break-after: always;
       }
-      .no-print { display: none !important; visibility: hidden !important; }
+      /* No forced break after the final page — it was printing one
+         extra blank sheet at the end of every handout. */
+      #printMount .asset-page:last-child { page-break-after: auto; }
+      .no-print { display: none !important; }
     }
   </style>
 </head>
@@ -579,6 +588,9 @@
     // Must match ASSET_PAGE_BREAK_TOKEN in Code.gs exactly.
     const PAGE_BREAK_TOKEN = '═══ PAGE BREAK ═══';
 
+    // Most recently rendered asset — source for the optional printed key page.
+    let _currentAsset = null;
+
     /* Strand checkbox → protocol routing.
        Deterministic and client-side by design: the model never chooses
        its own protocol. One asset is generated per call; when several
@@ -713,6 +725,8 @@
         n.classList.add('hidden');
         n.innerHTML = '';
       });
+      $('printMount').innerHTML = '';
+      _currentAsset = null;
     }
 
     function setGenerating(on) {
@@ -816,6 +830,7 @@
      */
     function renderAsset(asset, fidelity) {
       clearWorkspace();
+      _currentAsset = asset;
 
       // ── Meta bar: asset class surfaced explicitly ──
       const meta = $('assetMetaBar');
@@ -844,11 +859,19 @@
         region.appendChild(page);
       });
 
+      // Mirror the pages into the body-level print mount. The on-screen
+      // preview keeps its dark styling; the print stylesheet targets only
+      // the mount's copies. Page-number labels carry .no-print and are
+      // suppressed automatically.
+      const mount = $('printMount');
+      mount.innerHTML = '';
+      region.querySelectorAll('.asset-page').forEach(p => mount.appendChild(p.cloneNode(true)));
+
       // ── Teacher key: distinct block, excluded from print via .no-print ──
       const key = $('teacherKeyBlock');
       key.classList.remove('hidden');
       key.appendChild(el('p', 'text-[0.72rem] font-bold tracking-[0.1em] uppercase text-amber-400 mb-2',
-        '🔒 Teacher Use Only — excluded from print'));
+        '🔒 Teacher Use Only'));
       if (asset.sdi_alignment_note) {
         key.appendChild(el('p', 'text-xs text-slate-300 italic mb-3', asset.sdi_alignment_note));
       }
@@ -863,7 +886,64 @@
         key.appendChild(flagWrap);
       }
 
+      // Optional printed key page — unchecked by default so a plain
+      // "Print PDF Handout" always produces a student-safe printout.
+      const printRow = el('label', 'flex items-start gap-2 mt-3 pt-3 cursor-pointer');
+      printRow.style.borderTop = '1px solid rgba(251,191,36,0.3)';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = 'includeKeyInPrint';
+      cb.style.marginTop = '0.15rem';
+      cb.addEventListener('change', syncTeacherKeyPrintPage);
+      printRow.appendChild(cb);
+      const cbText = el('div');
+      cbText.appendChild(el('span', 'text-xs font-semibold text-slate-200 block', 'Include Teacher Key in printout'));
+      cbText.appendChild(el('span', 'text-[0.68rem] text-slate-400 block',
+        'Adds a separate, clearly labeled Teacher Key page after the student handout. Leave unchecked when printing student copies.'));
+      printRow.appendChild(cbText);
+      key.appendChild(printRow);
+
       $('exportHub').classList.remove('hidden');
+    }
+
+    /**
+     * syncTeacherKeyPrintPage()
+     * Adds or removes the Teacher Key page in the print mount to match
+     * the checkbox. The page is built as plain text with a DO NOT
+     * DISTRIBUTE banner, so if it ever rides along with student copies
+     * it announces itself on paper. Because the base print rule puts a
+     * page break after every .asset-page except :last-child, appending
+     * or removing this page keeps break behavior correct automatically.
+     */
+    function syncTeacherKeyPrintPage() {
+      const mount = $('printMount');
+      const existing = mount.querySelector('.teacher-key-print');
+      const cb = $('includeKeyInPrint');
+
+      if (!cb || !cb.checked) {
+        if (existing) existing.remove();
+        return;
+      }
+      if (existing || !_currentAsset) return;
+
+      const lines = [
+        '■ TEACHER KEY — TEACHER USE ONLY — DO NOT DISTRIBUTE TO STUDENTS ■',
+        '',
+        (_currentAsset.asset_title || 'Generated Asset') + ' — Teacher Key',
+      ];
+      if (_currentAsset.sdi_alignment_note) {
+        lines.push('SDI Alignment: ' + _currentAsset.sdi_alignment_note);
+      }
+      lines.push('', _currentAsset.teacher_key || '');
+      const flags = _currentAsset.teacher_review_flags || [];
+      if (flags.length) {
+        lines.push('', 'REVIEW FLAGS:');
+        flags.forEach(f => lines.push('- ' + f));
+      }
+
+      const page = el('div', 'asset-page teacher-key-print');
+      page.textContent = lines.join('\n');
+      mount.appendChild(page);
     }
 
     /**
@@ -873,7 +953,7 @@
      */
     function exportToFormat(format) {
       if (format === 'pdf') {
-        if ($('printRegion').classList.contains('hidden')) {
+        if (!$('printMount').children.length) {
           alert('Generate an asset first.');
           return;
         }
@@ -1240,5 +1320,9 @@
       });
     });
   </script>
+  <!-- Print mount: screen-hidden, populated by renderAsset(), and the
+       only body-level element displayed under @media print. -->
+  <div id="printMount" aria-hidden="true"></div>
+
 </body>
 </html>
