@@ -137,6 +137,30 @@
     .checkbox-card:hover { border-color: #3b5bdb; }
     .checkbox-card input { margin-top: 0.2rem; cursor: pointer; }
 
+
+    /* ── Site header & nav — matches probe-generator.html scheme ── */
+    .site-header { background: #171b26; border-bottom: 1px solid #1e2335; position: sticky; top: 0; z-index: 50; }
+    .site-header-inner { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+    .site-brand { display: inline-flex; align-items: center; gap: 0.55rem; font-size: 0.95rem; font-weight: 700; color: #e8ecf4; white-space: nowrap; flex-shrink: 0; text-decoration: none; }
+    .site-logo-fallback { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg,#3b5bdb 0%,#6c8fff 100%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
+    .site-nav { display: flex; align-items: center; gap: 0.25rem; }
+    .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; font-weight: 600; color: #7d8fb3; text-decoration: none; padding: 0.35rem 0.8rem; border-radius: 6px; transition: color 0.13s, background 0.13s; background: transparent; border: none; cursor: pointer; }
+    .nav-link:hover { color: #e8ecf4; background: rgba(255,255,255,0.05); }
+    .nav-link.danger:hover { color: #f87171; background: rgba(248,113,113,0.08); }
+    .nav-divider { width: 1px; height: 18px; background: #252c42; margin: 0 0.5rem; flex-shrink: 0; }
+
+    /* ── Page header + FERPA line — matches probe-generator.html ── */
+    .page-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #4a5578; margin-bottom: 0.3rem; }
+    .page-title { font-size: 1.4rem; font-weight: 700; color: #e8ecf4; margin: 0 0 0.25rem; }
+    .page-subtitle { font-size: 0.85rem; color: #7d8fb3; line-height: 1.55; margin: 0 0 0.75rem; }
+    .ferpa-notice { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.67rem; font-weight: 600; letter-spacing: 0.06em; color: #34d399; border: 1px solid rgba(52,211,153,0.28); border-radius: 20px; padding: 0.2rem 0.6rem; background: rgba(52,211,153,0.06); flex-shrink: 0; }
+    .ferpa-line { display: flex; align-items: flex-start; gap: 0.55rem; margin-bottom: 0.5rem; font-size: 0.78rem; color: #4a5578; line-height: 1.5; }
+
+    /* ── Protocol route blurb ── */
+    .protocol-blurb { font-size: 0.72rem; color: #7d8fb3; line-height: 1.5; margin-top: 0.35rem; }
+    .protocol-blurb .code-tag { font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; color: #4a5578; }
+    .builds-line { display: block; font-size: 0.62rem; color: rgba(108,143,255,0.75); margin-top: 0.2rem; }
+
     /* ── PDF dropzone ─────────────────────────────────────── */
     .pdf-dropzone {
       display: flex;
@@ -227,39 +251,20 @@
   <!-- ════════════════════════════════════════════════════════
        HEADER
        ═══════════════════════════════════════════════════════ -->
-  <header class="bg-surface-800 border-b border-surface-700">
-    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between flex-wrap gap-4">
-      
-      <div class="flex items-center gap-4">
-        <div class="w-9 h-9 rounded-[9px] flex items-center justify-center flex-shrink-0"
-             style="background:linear-gradient(135deg,#3b5bdb,#6c8fff);">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff"
-               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/>
-            <line x1="16" y1="17" x2="8" y2="17"/>
-            <polyline points="10 9 9 9 8 9"/>
-          </svg>
-        </div>
-        <div>
-          <div class="flex items-center gap-3">
-            <h1 class="text-[1.05rem] font-bold text-slate-100 tracking-tight leading-none">SDI Scaffold Engine</h1>
-            <a href="https://mpowerededucation.com/dashboard.html" class="text-xs text-accent hover:underline flex items-center gap-1">
-              ← Back to Workspace
-            </a>
-          </div>
-          <p class="text-[0.72rem] text-slate-400 mt-1">Specially Designed Instruction · Material Generator</p>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-4">
-        <span class="text-xs font-mono text-slate-300 bg-surface-700 px-3 py-1.5 rounded-md border border-surface-600" id="userEmailBadge">
-          loading_session...
-        </span>
-        <button class="btn-secondary !text-xs !py-1.5" onclick="signOut()">Sign Out</button>
-      </div>
-
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a href="https://caseload.mpowerededucation.com/" class="site-brand">
+        <span class="site-logo-fallback">M</span>
+        M-Powered Education
+      </a>
+      <nav class="site-nav">
+        <a href="https://www.mpowerededucation.com/dashboard.html" class="nav-link">Dashboard</a>
+        <div class="nav-divider"></div>
+        <a href="https://caseload.mpowerededucation.com/" class="nav-link">&larr; Caseload Manager</a>
+        <div class="nav-divider"></div>
+        <span class="text-xs font-mono text-slate-400 px-2" id="userEmailBadge">loading_session...</span>
+        <button class="nav-link danger" onclick="signOut()">Sign Out</button>
+      </nav>
     </div>
   </header>
 
@@ -267,6 +272,20 @@
        MAIN CONTENT
        ═══════════════════════════════════════════════════════ -->
   <main class="max-w-7xl mx-auto px-6 py-8">
+
+    <!-- Page header — matches probe-generator.html scheme -->
+    <div class="mb-6">
+      <p class="page-eyebrow">Specially Designed Instruction</p>
+      <h1 class="page-title">SDI Scaffold Engine</h1>
+      <p class="page-subtitle">Pick a student from your caseload or paste a goal, choose the type of support, and drop in the assignment — the engine builds a print-ready student handout with a separate teacher key.</p>
+      <div class="ferpa-line">
+        <span class="ferpa-notice">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          FERPA
+        </span>
+        <span>PDF text extraction happens locally in your browser &mdash; uploaded files never leave your device. When you generate, only the reviewed text shown on this page is sent over an encrypted connection to your district's M-Powered endpoint, and generated handouts are not stored on any server.</span>
+      </div>
+    </div>
     <div class="layout">
       
       <!-- LEFT PANEL: Configuration and Curriculum Inputs -->
@@ -303,19 +322,19 @@
           <div class="grid grid-cols-2 gap-2 text-xs">
             <label class="checkbox-card text-slate-200">
               <input type="checkbox" id="acc-graphic" value="Graphic Support" checked />
-              <div><strong>Graphic Support</strong><p class="text-[0.68rem] text-slate-400">Visual anchors, charts, chunking</p></div>
+              <div><strong>Graphic Support</strong><p class="text-[0.68rem] text-slate-400">Visual anchors, charts, chunking<span class="builds-line">Builds: Chunk &amp; Check handout</span></p></div>
             </label>
             <label class="checkbox-card text-slate-200">
               <input type="checkbox" id="acc-frames" value="Sentence Frames" checked />
-              <div><strong>Sentence Frames</strong><p class="text-[0.68rem] text-slate-400">Structured prompts & stems</p></div>
+              <div><strong>Sentence Frames</strong><p class="text-[0.68rem] text-slate-400">Structured prompts & stems<span class="builds-line">Builds: Where Is the Answer? (QAR) question set</span></p></div>
             </label>
             <label class="checkbox-card text-slate-200">
               <input type="checkbox" id="acc-tts" value="Text-to-Speech" />
-              <div><strong>Audio/TTS Aids</strong><p class="text-[0.68rem] text-slate-400">Read-aloud formatting prep</p></div>
+              <div><strong>Audio/TTS Aids</strong><p class="text-[0.68rem] text-slate-400">Read-aloud formatting prep<span class="builds-line">Builds: Mark It Up close-reading guide</span></p></div>
             </label>
             <label class="checkbox-card text-slate-200">
               <input type="checkbox" id="acc-vocab" value="Vocabulary Context" />
-              <div><strong>Vocabulary Organizers</strong><p class="text-[0.68rem] text-slate-400">Tier 2/3 baseline context terms</p></div>
+              <div><strong>Vocabulary Organizers</strong><p class="text-[0.68rem] text-slate-400">Tier 2/3 baseline context terms<span class="builds-line">Builds: Before-You-Read warm-up</span></p></div>
             </label>
           </div>
         </div>
@@ -326,6 +345,7 @@
           <label class="field-label" for="protocolRoute">Transformation Protocol Route</label>
           <select id="protocolRoute" class="field"></select>
           <p class="field-hint" id="protocolRouteHint">Routed from the selected strands.</p>
+          <p class="protocol-blurb" id="protocolBlurb"></p>
         </div>
 
         <hr class="section-divider" />
@@ -571,12 +591,31 @@
       { checkboxId: 'acc-tts',     protocol: 'P-ANNOTATE'  }, // Audio/read-aloud prep → guided re-reads + annotation
     ];
 
-    const PROTOCOL_LABELS = {
-      'P-FRONTLOAD': 'Vocabulary & Prior-Knowledge Front-Loader',
-      'P-CHUNK':     'Segmented Text + Embedded Checks',
-      'P-QAR':       'QAR Inference Question Set',
-      'P-ANNOTATE':  'Close Reading & Annotation Guide',
-      'P-WORKED':    'Worked Example with Faded Steps',
+    /* Teacher-facing protocol names. Internal P-* codes stay as the
+       option values and API contract; only the display layer changes.
+       `blurb` doubles as the hover tooltip and the description line
+       under the select (hover alone is invisible on touch devices). */
+    const PROTOCOL_INFO = {
+      'P-FRONTLOAD': {
+        name:  'Before-You-Read Warm-Up',
+        blurb: 'Pre-teaches the key vocabulary and connects the topic to what the student already knows. Completed BEFORE the student sees the passage.',
+      },
+      'P-CHUNK': {
+        name:  'Chunk & Check',
+        blurb: 'Breaks the passage into short sections with a quick comprehension question and a "Got it / Fuzzy / Lost" self-check after each one, ending with a put-it-together question.',
+      },
+      'P-QAR': {
+        name:  'Where Is the Answer? (QAR)',
+        blurb: 'Inference questions sorted by where the answer comes from. Each thinking question has two lines — "evidence from the text" and "what I added from my head" — so the inference is visible on paper.',
+      },
+      'P-ANNOTATE': {
+        name:  'Mark It Up (Close Reading)',
+        blurb: 'A guided re-reading handout with a simple margin-marking code. The student reads the passage 2–3 times, and each read has one clear job.',
+      },
+      'P-WORKED': {
+        name:  'I Do, You Try (Worked Steps)',
+        blurb: 'A fully worked example that explains WHY each step happens, then matched practice problems where the completed steps gradually fade until the student works alone.',
+      },
     };
 
     const PROTOCOL_DEFAULT_PARAMS = {
@@ -616,25 +655,46 @@
       const sel = $('protocolRoute');
       const previous = sel.value;
       const candidates = resolveProtocolCandidates();
-      const list = candidates.length ? candidates : Object.keys(PROTOCOL_LABELS);
+      const list = candidates.length ? candidates : Object.keys(PROTOCOL_INFO);
 
       sel.innerHTML = '';
       list.forEach(p => {
         const o = document.createElement('option');
         o.value = p;
-        o.textContent = p + ' — ' + PROTOCOL_LABELS[p];
+        o.textContent = PROTOCOL_INFO[p].name;
+        o.title = PROTOCOL_INFO[p].blurb; // hover tooltip (desktop)
         sel.appendChild(o);
       });
       if (list.includes(previous)) sel.value = previous;
+      refreshProtocolBlurb();
 
       const hint = $('protocolRouteHint');
       if (!candidates.length) {
         hint.textContent = 'No strand selected — choose a protocol manually.';
       } else if (candidates.length > 1) {
-        hint.textContent = candidates.length + ' strands map to different protocols. One asset is generated per run — confirm which to run first, then re-run for the others.';
+        hint.textContent = candidates.length + ' strands are checked, each building a different handout. One handout is generated per run — pick which to build first, then re-run for the others.';
       } else {
         hint.textContent = 'Routed from the selected strand.';
       }
+    }
+
+    /**
+     * refreshProtocolBlurb()
+     * Plain-language description of what the selected protocol builds,
+     * shown under the select — works on touch devices where the option
+     * hover tooltips never appear. The internal P-* code is kept as a
+     * small tag for support conversations and audit logs.
+     */
+    function refreshProtocolBlurb() {
+      const blurb = $('protocolBlurb');
+      const p = $('protocolRoute').value;
+      blurb.innerHTML = '';
+      if (!p || !PROTOCOL_INFO[p]) return;
+      blurb.appendChild(document.createTextNode(PROTOCOL_INFO[p].blurb + ' '));
+      const tag = document.createElement('span');
+      tag.className = 'code-tag';
+      tag.textContent = '[' + p + ']';
+      blurb.appendChild(tag);
     }
 
     // Small DOM helper — all model output is rendered via textContent,
@@ -767,7 +827,8 @@
         isMod ? '⚠ Modification — expectations changed' : '✔ Scaffold — rigor preserved'
       ));
       meta.appendChild(el('h3', 'text-md font-bold text-slate-100 mt-2', asset.asset_title));
-      const metaLine = asset.protocol_id +
+      const friendly = PROTOCOL_INFO[asset.protocol_id] ? PROTOCOL_INFO[asset.protocol_id].name + '  ·  ' : '';
+      const metaLine = friendly + asset.protocol_id +
         (fidelity && fidelity.coverage != null ? ' · source fidelity ' + Math.round(fidelity.coverage * 100) + '%' : '');
       meta.appendChild(el('p', 'text-[0.7rem] text-slate-400 font-mono mt-0.5', metaLine));
 
@@ -1173,6 +1234,7 @@
       wirePdfDropzone();
       $('studentSelect').addEventListener('change', onStudentChange);
       $('goalSelect').addEventListener('change', onGoalChange);
+      $('protocolRoute').addEventListener('change', refreshProtocolBlurb);
       ['acc-graphic', 'acc-frames', 'acc-tts', 'acc-vocab', 'contentType', 'modalityIntent'].forEach(id => {
         $(id).addEventListener('change', refreshProtocolRoute);
       });
