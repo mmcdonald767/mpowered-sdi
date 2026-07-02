@@ -473,7 +473,7 @@
                 </svg>
                 <span>Print PDF Handout</span>
               </button>
-              <button class="btn-secondary !text-xs py-2.5 flex flex-col items-center gap-1.5" onclick="exportToFormat('forms')">
+              <button id="gformExportBtn" class="btn-secondary !text-xs py-2.5 flex flex-col items-center gap-1.5" onclick="exportToFormat('forms')">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
                 </svg>
@@ -486,6 +486,8 @@
                 <span>Google Slides Deck</span>
               </button>
             </div>
+            <!-- Google Form export result (links + pipeline note) -->
+            <div id="formExportResult" class="hidden mt-3"></div>
           </div>
 
         </div>
@@ -716,7 +718,7 @@
 
     function clearWorkspace() {
       $('sdiEmptyState').style.display = 'none';
-      ['assetMetaBar', 'printRegion', 'workspaceError', 'teacherKeyBlock'].forEach(id => {
+      ['assetMetaBar', 'printRegion', 'workspaceError', 'teacherKeyBlock', 'formExportResult'].forEach(id => {
         const n = $(id);
         n.classList.add('hidden');
         n.innerHTML = '';
@@ -1024,6 +1026,113 @@
     }
 
     /**
+     * exportGoogleForm()
+     * Sends the current asset to the exportGoogleForm route, which
+     * builds a real Google Form (auto-gradable MC from the teacher key,
+     * paragraph items for inferential work) whose submissions auto-log
+     * to GoalData (source 'gform') — the same sheet every
+     * data.mpowerededucation.com tool reads.
+     */
+    async function exportGoogleForm() {
+      if (!_currentAsset) { alert('Generate an asset first.'); return; }
+
+      const btn = $('gformExportBtn');
+      const label = btn.querySelector('span');
+      const prevLabel = label.textContent;
+      btn.disabled = true;
+      label.textContent = 'Building form…';
+
+      const sIdx = $('studentSelect') ? $('studentSelect').value : '';
+      const studentTag = (sIdx !== '' && _rosterRows && _rosterRows[sIdx])
+        ? String(_rosterRows[sIdx][COL_ID] || '').trim() : '';
+
+      const payload = {
+        action:              'exportGoogleForm',
+        protocol_id:         _currentAsset.protocol_id,
+        asset_title:         _currentAsset.asset_title,
+        student_asset:       _currentAsset.student_asset,
+        teacher_key:         _currentAsset.teacher_key,
+        grade_level:         $('gradeLevel').value,
+        instructional_level: $('instructionalLevel').value,
+        student_tag:         studentTag,
+        goal_index:          $('goalSelect') && !$('goalSelect').classList.contains('hidden') ? ($('goalSelect').value || '') : '',
+      };
+
+      try {
+        const res = await fetch(GAS_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.result !== 'success') {
+          renderFormExportResult(null, data);
+          return;
+        }
+        renderFormExportResult(data.form, null);
+      } catch (err) {
+        renderFormExportResult(null, { error: 'NETWORK_ERROR', detail: err.message });
+      } finally {
+        btn.disabled = false;
+        label.textContent = prevLabel;
+      }
+    }
+
+    function renderFormExportResult(form, errData) {
+      const box = $('formExportResult');
+      box.classList.remove('hidden');
+      box.innerHTML = '';
+
+      const card = el('div', 'border rounded-12 p-4');
+      if (!form) {
+        card.style.borderColor = 'rgba(248,113,113,0.5)';
+        card.style.background  = 'rgba(248,113,113,0.08)';
+        card.appendChild(el('p', 'text-xs font-bold uppercase tracking-wider mb-1 text-red-400', '✕ Form export failed'));
+        card.appendChild(el('p', 'text-xs text-slate-300 leading-relaxed', (errData && (errData.detail || errData.error)) || 'Unknown error.'));
+        box.appendChild(card);
+        return;
+      }
+
+      card.style.borderColor = 'rgba(52,211,153,0.4)';
+      card.style.background  = 'rgba(52,211,153,0.06)';
+      card.appendChild(el('p', 'text-xs font-bold uppercase tracking-wider mb-1', '✓ Google Form created')).style.color = '#34d399';
+      card.appendChild(el('p', 'text-[0.72rem] text-slate-300 mb-2',
+        form.autoGraded + ' auto-graded multiple-choice item(s), ' + form.manual + ' open-response item(s) for hand grading.'));
+
+      const links = el('div', 'flex flex-wrap gap-2 mb-2');
+      const mkLink = (href, text) => {
+        const a = document.createElement('a');
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.className = 'btn-secondary !text-xs !py-1.5';
+        a.textContent = text;
+        return a;
+      };
+      links.appendChild(mkLink(form.editUrl, 'Open in Forms editor'));
+      links.appendChild(mkLink(form.publishedUrl, 'Open student view'));
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'btn-secondary !text-xs !py-1.5';
+      copyBtn.textContent = 'Copy student link';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(form.publishedUrl).then(
+          () => { copyBtn.textContent = 'Copied ✓'; setTimeout(() => copyBtn.textContent = 'Copy student link', 2000); },
+          () => { prompt('Copy the student link:', form.publishedUrl); }
+        );
+      });
+      links.appendChild(copyBtn);
+      card.appendChild(links);
+
+      card.appendChild(el('p', 'text-[0.68rem] text-slate-400 leading-relaxed',
+        'Review the form in the editor before sending — especially auto-generated answer choices. ' +
+        'Submissions auto-grade and log to your GoalData sheet (source: gform)' +
+        (form.responseSheet ? ', with raw responses in "' + form.responseSheet + '"' : '') +
+        ' — they will appear in your data.mpowerededucation.com tools automatically.'));
+
+      box.appendChild(card);
+    }
+
+    /**
      * exportToFormat(format)
      * 'pdf' is live: prints via the isolated iframe pipeline (printAsset),
      * which includes the Teacher Key page only when its checkbox is on.
@@ -1031,6 +1140,10 @@
     function exportToFormat(format) {
       if (format === 'pdf') {
         printAsset();
+        return;
+      }
+      if (format === 'forms') {
+        exportGoogleForm();
         return;
       }
       alert('The "' + format.toUpperCase() + '" pipeline is on the roadmap — Print PDF Handout is live now.');
