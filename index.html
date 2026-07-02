@@ -273,6 +273,23 @@
       <section class="bg-surface-800 border border-surface-700 rounded-2xl p-6 shadow-panel">
         <h2 class="text-[0.78rem] font-semibold tracking-[0.1em] uppercase text-accent mb-4">Ingest Parameters</h2>
         
+        <!-- Caseload picker: select a student to populate their goals,
+             or skip it entirely and paste a goal manually. Roster comes
+             from the existing getRoster GAS route; goals JSON is parsed
+             with the same tolerant normalizer as tracker.html. -->
+        <div class="mb-4">
+          <label class="field-label" for="studentSelect">Caseload</label>
+          <div class="flex gap-2 mb-2">
+            <select id="studentSelect" class="field" disabled>
+              <option value="">Load caseload to select a student…</option>
+            </select>
+            <button type="button" class="btn-secondary !text-xs whitespace-nowrap" id="loadRosterBtn"
+                    onclick="loadCaseload(true)">Load Caseload</button>
+          </div>
+          <select id="goalSelect" class="field hidden mb-2"></select>
+          <p class="field-hint" id="caseloadStatus">Pick a student to pull their goals on file — or skip this and paste a goal below.</p>
+        </div>
+
         <!-- Target IEP Goal Input -->
         <div class="mb-4">
           <label class="field-label" for="iepGoal">Target IEP Goal Blueprint</label>
@@ -943,11 +960,219 @@
       window.addEventListener('drop', e => e.preventDefault());
     }
 
+    /* ── BLOCK 5: CASELOAD → GOAL POPULATION ─────────────── */
+    //
+    //  Pulls the teacher's roster via the existing getRoster route.
+    //  Selecting a student lists their goals on file; selecting a
+    //  goal composes it into the Target IEP Goal Blueprint textarea
+    //  (still fully editable) and fills the Student Display Name.
+    //  Manual paste remains the zero-click default path.
+
+    // Intake sheet schema — must mirror modify-student.html / tracker.html.
+    const COL_ID = 1, COL_FIRST = 2, COL_LAST = 3, COL_GOALS = 8;
+
+    const ROSTER_CACHE_KEY = 'mp_roster_cache';
+    const ROSTER_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+    let _rosterRows   = null; // data rows (header stripped)
+    let _lastAutoFill = '';   // last goal text we wrote, so we know when
+                              // overwriting needs the teacher's confirmation
+
+    function caseloadStatus(text, tone) {
+      const s = $('caseloadStatus');
+      s.textContent = text;
+      s.style.color = tone === 'error' ? '#f87171' : (tone === 'ok' ? '#34d399' : '');
+    }
+
+    /**
+     * parseGoalsTolerant(raw)
+     * Port of tracker.html's normalizer, reduced to what this page
+     * needs. Accepts a JSON-array string, an array of goal objects in
+     * any historical shape, or plain text. Returns
+     * [{ description, target, sdiStrategy, sdiDetail }].
+     */
+    function parseGoalsTolerant(raw) {
+      if (raw === null || raw === undefined) return [];
+      let arr = raw;
+      if (typeof raw === 'string') {
+        const s = raw.trim();
+        if (!s || s === '[]') return [];
+        if (s.charAt(0) === '[') {
+          try { arr = JSON.parse(s); } catch (e) { return [{ description: s, target: '', sdiStrategy: '', sdiDetail: '' }]; }
+        } else {
+          return [{ description: s, target: '', sdiStrategy: '', sdiDetail: '' }];
+        }
+      }
+      if (!Array.isArray(arr)) return [];
+
+      return arr.map(g => {
+        if (typeof g === 'string') {
+          const t = g.trim();
+          return t ? { description: t, target: '', sdiStrategy: '', sdiDetail: '' } : null;
+        }
+        if (!g || typeof g !== 'object') return null;
+
+        const description = String(g.description || g.goal || g.text || g.label || '').trim();
+        const pm = (g.progress_monitoring && typeof g.progress_monitoring === 'object') ? g.progress_monitoring : {};
+        const target = String(g.target || g.criteria || pm.mastery_criterion || '').trim();
+
+        let sdiStrategy = '', sdiDetail = '';
+        if (g.sdi && typeof g.sdi === 'object') {
+          sdiStrategy = String(g.sdi.strategy || '').trim();
+          sdiDetail = [g.sdi.delivery_model, g.sdi.frequency].filter(Boolean).join(', ');
+        } else if (typeof g.sdi === 'string') {
+          sdiStrategy = g.sdi.trim();
+        }
+
+        if (!description && !sdiStrategy) return null;
+        return { description, target, sdiStrategy, sdiDetail };
+      }).filter(Boolean);
+    }
+
+    /**
+     * loadCaseload(force)
+     * Fetches the roster (sessionStorage-cached for 10 minutes) and
+     * populates the student select. force=true bypasses the cache.
+     */
+    async function loadCaseload(force) {
+      const btn = $('loadRosterBtn');
+
+      if (!force) {
+        try {
+          const cached = JSON.parse(sessionStorage.getItem(ROSTER_CACHE_KEY));
+          if (cached && (Date.now() - cached.ts) < ROSTER_CACHE_TTL && Array.isArray(cached.rows)) {
+            populateStudentSelect(cached.rows);
+            return;
+          }
+        } catch (e) {}
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Loading…';
+      caseloadStatus('Fetching your caseload…');
+
+      try {
+        const res = await fetch(GAS_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'getRoster' }),
+        });
+        const data = await res.json();
+        if (data.result !== 'success') throw new Error(data.error || 'Roster fetch failed.');
+
+        const allRows = Array.isArray(data.rows) ? data.rows : [];
+        // rows[0] is the sheet header; keep only rows with a name.
+        const dataRows = (allRows.length > 1 ? allRows.slice(1) : []).filter(row =>
+          row && (String(row[COL_FIRST] || '').trim() || String(row[COL_LAST] || '').trim())
+        );
+
+        try { sessionStorage.setItem(ROSTER_CACHE_KEY, JSON.stringify({ ts: Date.now(), rows: dataRows })); } catch (e) {}
+        populateStudentSelect(dataRows);
+      } catch (err) {
+        caseloadStatus('Could not load caseload: ' + err.message + ' — you can still paste a goal below.', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Refresh';
+      }
+    }
+
+    function populateStudentSelect(rows) {
+      _rosterRows = rows;
+      const sel = $('studentSelect');
+      sel.innerHTML = '';
+      sel.disabled = false;
+
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = rows.length
+        ? '— Select a student (or paste a goal manually) —'
+        : 'No students on file — paste a goal below';
+      sel.appendChild(placeholder);
+
+      rows.forEach((row, i) => {
+        const o = document.createElement('option');
+        o.value = String(i);
+        const last = String(row[COL_LAST] || '').trim();
+        const first = String(row[COL_FIRST] || '').trim();
+        const tag = String(row[COL_ID] || '').trim();
+        o.textContent = (last ? last + ', ' + first : first) + (tag ? '  ·  #' + tag : '');
+        sel.appendChild(o);
+      });
+
+      caseloadStatus(rows.length + ' student(s) loaded.', 'ok');
+    }
+
+    function onStudentChange() {
+      const idx = $('studentSelect').value;
+      const goalSel = $('goalSelect');
+      goalSel.innerHTML = '';
+
+      if (idx === '' || !_rosterRows || !_rosterRows[idx]) {
+        goalSel.classList.add('hidden');
+        caseloadStatus('Pick a student to pull their goals on file — or skip this and paste a goal below.');
+        return;
+      }
+
+      const row = _rosterRows[idx];
+      const goals = parseGoalsTolerant(row[COL_GOALS]);
+
+      // Fill the printed-asset name with the first name; the teacher can
+      // edit it to the full name if their handouts use one.
+      const first = String(row[COL_FIRST] || '').trim();
+      if (first) $('studentName').value = first;
+
+      goalSel.classList.remove('hidden');
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = goals.length
+        ? '— Select a goal to populate below (' + goals.length + ' on file) —'
+        : 'No goals on file for this student — paste one below';
+      goalSel.appendChild(placeholder);
+
+      goals.forEach((g, i) => {
+        const o = document.createElement('option');
+        o.value = String(i);
+        const preview = (g.description || g.sdiStrategy).slice(0, 90);
+        o.textContent = 'Goal ' + (i + 1) + ' — ' + preview + (preview.length === 90 ? '…' : '');
+        goalSel.appendChild(o);
+      });
+      goalSel._goals = goals;
+
+      caseloadStatus(goals.length
+        ? 'Selecting a goal fills the blueprint below — you can still edit it before generating.'
+        : 'This student has no goals stored yet.', goals.length ? 'ok' : 'error');
+    }
+
+    function onGoalChange() {
+      const goalSel = $('goalSelect');
+      const i = goalSel.value;
+      if (i === '' || !goalSel._goals || !goalSel._goals[i]) return;
+      const g = goalSel._goals[i];
+
+      const lines = [g.description];
+      if (g.target) lines.push('Target Criteria: ' + g.target);
+      if (g.sdiStrategy) lines.push('SDI Strategy: ' + g.sdiStrategy + (g.sdiDetail ? ' (' + g.sdiDetail + ')' : ''));
+      const composed = lines.filter(Boolean).join('\n');
+
+      const box = $('iepGoal');
+      const current = box.value.trim();
+      // Overwrite silently only when the box is empty or still holds our
+      // previous auto-fill; hand-typed or pasted text needs confirmation.
+      if (current && current !== _lastAutoFill &&
+          !confirm('Replace the current goal blueprint with the selected goal from the caseload?')) {
+        return;
+      }
+      box.value = composed;
+      _lastAutoFill = composed;
+    }
+
     // Route recalculation wiring: any strand, content-type, or modality
     // change re-resolves the protocol route immediately.
     window.addEventListener('DOMContentLoaded', () => {
       refreshProtocolRoute();
       wirePdfDropzone();
+      $('studentSelect').addEventListener('change', onStudentChange);
+      $('goalSelect').addEventListener('change', onGoalChange);
       ['acc-graphic', 'acc-frames', 'acc-tts', 'acc-vocab', 'contentType', 'modalityIntent'].forEach(id => {
         $(id).addEventListener('change', refreshProtocolRoute);
       });
