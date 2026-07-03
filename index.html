@@ -293,7 +293,7 @@
         <div class="mb-4">
           <label class="field-label" for="iepGoal">Target IEP Goal Blueprint</label>
           <textarea id="iepGoal" class="field font-mono text-[0.82rem] !h-20" 
-                    placeholder="Paste the synthesized IEP goal statement from the Goal Architect tool here..."></textarea>
+                    placeholder="Select a student above to pull their goal from the caseload — or paste an IEP goal statement here..."></textarea>
           <p class="field-hint">The specific behavior framework the generated modifications must target.</p>
         </div>
 
@@ -1390,10 +1390,15 @@
     //  (still fully editable) and fills the Student Display Name.
     //  Manual paste remains the zero-click default path.
 
-    // Intake sheet schema — must mirror modify-student.html / tracker.html.
-    const COL_ID = 1, COL_FIRST = 2, COL_LAST = 3, COL_GOALS = 8;
+    // Intake sheet schema — must mirror modify-student.html / Code.gs exactly:
+    //  0 Timestamp | 1 DatabaseID | 2 Tag | 3 First | 4 Last | 5 IEP Start |
+    //  6 IEP End | 7 Disability | 8 Supplemental | 9 Goals (JSON) |
+    // 10 Accommodations (JSON) | 11 Post-Secondary Plan (plain text)
+    const COL_ID = 1, COL_TAG = 2, COL_FIRST = 3, COL_LAST = 4, COL_GOALS = 9, COL_PLAN = 11;
 
-    const ROSTER_CACHE_KEY = 'mp_roster_cache';
+    // v2: cache key bumped when the column map above was corrected —
+    // rows cached under the old key were filtered against wrong indices.
+    const ROSTER_CACHE_KEY = 'mp_roster_cache_v2';
     const ROSTER_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
     let _rosterRows   = null; // data rows (header stripped)
@@ -1542,6 +1547,20 @@
       // edit it to the full name if their handouts use one.
       const first = String(row[COL_FIRST] || '').trim();
       if (first) $('studentName').value = first;
+
+      // Post-secondary plan → interest context (Intake col 11, via the
+      // Caseload Manager roster). Same non-destructive rule as the goal
+      // blueprint: overwrite only if the box is empty or still holds our
+      // previous auto-fill — never clobber hand-typed context.
+      const plan = String(row[COL_PLAN] || '').trim();
+      const icBox = $('interestContext');
+      if (icBox) {
+        const icCurrent = icBox.value.trim();
+        if (plan && (!icCurrent || icCurrent === icBox._lastAutoFill)) {
+          icBox.value = plan;
+          icBox._lastAutoFill = plan;
+        }
+      }
 
       goalSel.classList.remove('hidden');
       const placeholder = document.createElement('option');
