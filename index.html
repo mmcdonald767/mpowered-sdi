@@ -228,28 +228,60 @@
 </head>
 <body class="bg-surface-900 text-slate-100 font-sans antialiased min-h-screen">
 
-  <!-- ════════════════════════════════════════════════════════
-       HEADER
-       ═══════════════════════════════════════════════════════ -->
+ <!-- ═══ SHARED NAV ═══ -->
+  <!-- ════════════════════════════════════════════════════════════
+       M-POWERED UNIFIED NAVIGATION
+       Logo → dashboard home · subdomain switcher with active state
+       · Profile placeholder · universal Sign Out.
+  ════════════════════════════════════════════════════════════ -->
   <header class="site-header" role="banner">
-  <div class="site-header-inner">
-    <a href="https://www.mpowerededucation.com/dashboard.html" class="site-brand" title="M-Powered dashboard">
-      <span class="site-logo-fallback">M</span>
-      <span class="site-brand-text">M-Powered Education</span>
-    </a>
-    <nav class="site-nav" aria-label="M-Powered workspaces">
-      <a href="https://iep.mpowerededucation.com/"      class="nav-link" data-subdomain="iep">Goal Architect</a>
-      <a href="https://sdi.mpowerededucation.com/"      class="nav-link" data-subdomain="sdi">SDI Engine</a>
-      <a href="https://data.mpowerededucation.com/"     class="nav-link" data-subdomain="data">Data Utility</a>
-      <a href="https://caseload.mpowerededucation.com/" class="nav-link" data-subdomain="caseload">Caseload</a>
-      <div class="nav-divider" role="separator" aria-hidden="true"></div>
-      <a href="#" class="nav-link" id="nav-profile" title="Profile — coming soon">Profile</a>
-    <button type="button" class="btn-ghost" onclick="logout()" aria-label="Sign out">
-  Sign Out
-</button>
-    </nav>
-  </div>
-</header>
+    <div class="site-header-inner">
+      <!-- Logo acts as the Home / Dashboard link -->
+      <a href="https://www.mpowerededucation.com/dashboard.html" class="site-brand" aria-label="M-Powered dashboard home">
+        <img src="/assets/m-powered-logo.svg"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';"
+             class="site-logo" alt="M-Powered logo" />
+        <span class="site-logo-fallback" style="display:none;" aria-hidden="true">M</span>
+        <span class="site-brand-text">M-Powered Education</span>
+      </a>
+      <nav class="site-nav" aria-label="M-Powered workspaces">
+        <!-- Subdomain switcher — .active applied by unified-nav script -->
+        <a href="https://iep.mpowerededucation.com/"      class="nav-link" data-subdomain="iep">Goal Architect</a>
+        <a href="https://sdi.mpowerededucation.com/"      class="nav-link" data-subdomain="sdi">SDI Engine</a>
+        <a href="https://data.mpowerededucation.com/"     class="nav-link" data-subdomain="data">Data Utility</a>
+        <a href="https://caseload.mpowerededucation.com/" class="nav-link" data-subdomain="caseload">Caseload</a>
+        <div class="nav-divider" role="separator" aria-hidden="true"></div>
+        <a href="/modify-student.html?id=new" class="nav-link-primary">+ New Student</a>
+        <a href="#" class="nav-link" id="nav-profile" title="Profile — coming soon">Profile</a>
+        <button type="button" class="btn-ghost" onclick="logout()" aria-label="Sign out">Sign Out</button>
+      </nav>
+    </div>
+  </header>
+
+  <script>
+    // ── Unified nav: active state + universal logout ──────────────
+    (function () {
+      'use strict';
+      var sub = window.location.hostname.split('.')[0];
+      var links = document.querySelectorAll('.site-nav .nav-link[data-subdomain]');
+      for (var i = 0; i < links.length; i++) {
+        if (links[i].getAttribute('data-subdomain') === sub) {
+          links[i].classList.add('active');
+          links[i].setAttribute('aria-current', 'page');
+        }
+      }
+    })();
+    function logout() {
+      // Universal sign-out: clear every client-side auth artifact,
+      // then land on the main dashboard (its guard takes over from
+      // there if re-authentication is required).
+      try { localStorage.clear(); }   catch (e) {}
+      try { sessionStorage.clear(); } catch (e) {}
+      document.cookie = 'mp_session=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.mpowerededucation.com; Secure; SameSite=Lax';
+      window.location.href = 'https://www.mpowerededucation.com/dashboard.html';
+    }
+  </script>
+  <!-- ═══ END NAV ═══ -->
 
   <!-- ════════════════════════════════════════════════════════
        MAIN CONTENT
