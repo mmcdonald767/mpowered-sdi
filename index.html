@@ -3,65 +3,298 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Caseload Management Portal — M-Powered Education</title>
+  <title>SDI Scaffold Engine — M-Powered Education</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            surface: {
+              900: '#0f1117',
+              800: '#171b26',
+              700: '#1e2335',
+              600: '#252c42',
+              500: '#2e3650',
+            },
+            accent: {
+              DEFAULT: '#6c8fff',
+              soft:    '#3b5bdb',
+              glow:    'rgba(108,143,255,0.18)',
+            },
+            success: '#34d399',
+          },
+          fontFamily: {
+            sans: ['"Inter"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          boxShadow: {
+            panel: '0 4px 32px 0 rgba(0,0,0,0.45)',
+            glow:  '0 0 0 3px rgba(108,143,255,0.35)',
+          },
+        }
+      }
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
-
+  <!-- pdf.js: client-side PDF text extraction (file never leaves the browser) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; background-color: #0f1117; }
-    body { font-family: 'Inter', system-ui, sans-serif; color: #e8ecf4; -webkit-font-smoothing: antialiased; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background-color: #0f1117;
+      color: #e2e8f8;
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #171b26; }
+    ::-webkit-scrollbar-thumb { background: #2e3650; border-radius: 3px; }
 
-    /* ── Shared nav from modify-student.html ── */
+    .field {
+      width: 100%;
+      background: #1e2335;
+      border: 1px solid #2e3650;
+      color: #f1f5f9;
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+    }
+    .field:focus {
+      border-color: #6c8fff;
+      box-shadow: 0 0 0 3px rgba(108,143,255,0.22);
+    }
+    .field::placeholder { color: #4a5578; }
+    
+    .field-label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6c8fff;
+      margin-bottom: 0.4rem;
+    }
+    .field-hint { font-size: 0.72rem; color: #64748b; margin-top: 0.3rem; }
+    .section-divider { border: none; border-top: 1px solid #252c42; margin: 1.5rem 0; }
+    
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, #3b5bdb 0%, #6c8fff 100%);
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.875rem;
+      border: none;
+      border-radius: 9px;
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(60,91,219,0.4);
+      transition: transform .12s, box-shadow .12s, filter .12s;
+    }
+    .btn-primary:hover { filter: brightness(1.1); box-shadow: 0 4px 18px rgba(60,91,219,0.55); }
+    .btn-primary:active { transform: scale(.97); }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      background: #1e2335;
+      color: #94a3b8;
+      font-weight: 500;
+      font-size: 0.8rem;
+      border: 1px solid #2e3650;
+      border-radius: 8px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      transition: background .12s, color .12s, border-color .12s;
+    }
+    .btn-secondary:hover { background: #252c42; color: #f1f5f9; border-color: #6c8fff; }
+
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+    .checkbox-card {
+      background: #1e2335;
+      border: 1px solid #2e3650;
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .checkbox-card:hover { border-color: #3b5bdb; }
+    .checkbox-card input { margin-top: 0.2rem; cursor: pointer; }
+
+
+    /* ── Site header & nav — matches probe-generator.html scheme ── */
     .site-header { background: #171b26; border-bottom: 1px solid #1e2335; position: sticky; top: 0; z-index: 50; }
     .site-header-inner { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
-    .site-brand { display: inline-flex; align-items: center; gap: 0.55rem; font-size: 0.95rem; font-weight: 700; color: #e8ecf4; text-decoration: none; }
-    .site-logo-fallback { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg,#3b5bdb 0%,#6c8fff 100%); display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; color: #fff; }
+    .site-brand { display: inline-flex; align-items: center; gap: 0.55rem; font-size: 0.95rem; font-weight: 700; color: #e8ecf4; white-space: nowrap; flex-shrink: 0; text-decoration: none; }
+    .site-logo-fallback { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg,#3b5bdb 0%,#6c8fff 100%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
     .site-nav { display: flex; align-items: center; gap: 0.25rem; }
-    .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; font-weight: 600; color: #7d8fb3; text-decoration: none; padding: 0.35rem 0.8rem; border-radius: 6px; transition: color 0.13s, background 0.13s; }
+    .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; font-weight: 600; color: #7d8fb3; text-decoration: none; padding: 0.35rem 0.8rem; border-radius: 6px; transition: color 0.13s, background 0.13s; background: transparent; border: none; cursor: pointer; }
     .nav-link:hover { color: #e8ecf4; background: rgba(255,255,255,0.05); }
+    .nav-link.danger:hover { color: #f87171; background: rgba(248,113,113,0.08); }
+    .nav-divider { width: 1px; height: 18px; background: #252c42; margin: 0 0.5rem; flex-shrink: 0; }
+    /* ── Unified nav additions ── */
+    .site-nav { overflow-x: auto; scrollbar-width: none; }
+    .site-nav::-webkit-scrollbar { display: none; }
+    .nav-link { flex-shrink: 0; }
     .nav-link.active { color: #6c8fff; background: rgba(108,143,255,0.1); box-shadow: inset 0 0 0 1px rgba(108,143,255,0.35); }
-    .nav-divider { width: 1px; height: 18px; background: #252c42; margin: 0 0.5rem; }
-    .btn-ghost { font-family: 'JetBrains Mono', monospace; font-size: 0.84rem; font-weight: 500; color: #7d8fb3; background: transparent; border: 1px solid #252c42; border-radius: 7px; padding: 0.4rem 0.85rem; cursor: pointer; transition: color 0.14s, border-color 0.14s; }
-    .btn-ghost:hover { color: #f87171; border-color: rgba(248,113,113,0.45); }
+    .btn-ghost {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 600;
+      color: #7d8fb3; background: transparent; border: 1px solid #252c42; border-radius: 6px;
+      padding: 0.35rem 0.9rem; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      transition: color 0.13s, border-color 0.13s, background 0.13s;
+    }
+    .btn-ghost:hover { color: #f87171; border-color: rgba(248,113,113,0.45); background: rgba(248,113,113,0.06); }
+    @media (max-width: 760px) { .site-brand-text { display: none; } }
+
+    /* ── Page header + FERPA line — matches probe-generator.html ── */
+    .page-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #4a5578; margin-bottom: 0.3rem; }
+    .page-title { font-size: 1.4rem; font-weight: 700; color: #e8ecf4; margin: 0 0 0.25rem; }
+    .page-subtitle { font-size: 0.85rem; color: #7d8fb3; line-height: 1.55; margin: 0 0 0.75rem; }
+    .ferpa-notice { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.67rem; font-weight: 600; letter-spacing: 0.06em; color: #34d399; border: 1px solid rgba(52,211,153,0.28); border-radius: 20px; padding: 0.2rem 0.6rem; background: rgba(52,211,153,0.06); flex-shrink: 0; }
+    .ferpa-line { display: flex; align-items: flex-start; gap: 0.55rem; margin-bottom: 0.5rem; font-size: 0.78rem; color: #4a5578; line-height: 1.5; }
+
+    /* ── Protocol route blurb ── */
+    .protocol-blurb { font-size: 0.72rem; color: #7d8fb3; line-height: 1.5; margin-top: 0.35rem; }
+    .protocol-blurb .code-tag { font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; color: #4a5578; }
+    .builds-line { display: block; font-size: 0.62rem; color: rgba(108,143,255,0.75); margin-top: 0.2rem; }
+
+    /* ── PDF dropzone ─────────────────────────────────────── */
+    .pdf-dropzone {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      border: 1.5px dashed #2e3650;
+      border-radius: 8px;
+      background: #171b26;
+      color: #64748b;
+      font-size: 0.78rem;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.6rem;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, color .15s;
+      text-align: center;
+    }
+    .pdf-dropzone:hover { border-color: #3b5bdb; color: #94a3b8; }
+    .pdf-dropzone.dragover {
+      border-color: #6c8fff;
+      background: rgba(108,143,255,0.08);
+      color: #c7d4ff;
+    }
+    .pdf-dropzone.busy { pointer-events: none; opacity: 0.65; }
+
+    /* ── Asset Factory: workspace + print styles ────────────── */
+    .asset-page {
+      background: #171b26;
+      border: 1px solid #2e3650;
+      border-radius: 10px;
+      padding: 1.25rem 1.4rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      color: #e2e8f8;
+    }
+    .asset-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+    }
+    .asset-badge--scaffold {
+      background: rgba(52,211,153,0.12);
+      color: #34d399;
+      border: 1px solid rgba(52,211,153,0.4);
+    }
+    .asset-badge--modification {
+      background: rgba(251,191,36,0.12);
+      color: #fbbf24;
+      border: 1px solid rgba(251,191,36,0.45);
+    }
+    /* Printing no longer uses @media print rules against this document.
+       The app document is dark-themed, Tailwind-injected, and extension-
+       exposed — CSS isolation proved fragile twice in production. The
+       Print button instead builds a minimal white document in a hidden
+       iframe and prints that. See buildPrintHtml() / printAsset(). */
   </style>
 </head>
-<body>
+<body class="bg-surface-900 text-slate-100 font-sans antialiased min-h-screen">
 
-  <header class="site-header" role="banner">
+  <!-- ════════════════════════════════════════════════════════
+       HEADER
+       ═══════════════════════════════════════════════════════ -->
+  <!-- ════════════════════════════════════════════════════════════
+       M-POWERED UNIFIED NAVIGATION
+       Logo → dashboard home · subdomain switcher with active state
+       · Profile placeholder · universal Sign Out.
+  ════════════════════════════════════════════════════════════ -->
+  <header class="site-header">
     <div class="site-header-inner">
-      <a href="https://www.mpowerededucation.com/dashboard.html" class="site-brand">
+      <!-- Logo acts as the Home / Dashboard link -->
+      <a href="https://www.mpowerededucation.com/dashboard.html" class="site-brand" title="M-Powered dashboard">
         <span class="site-logo-fallback">M</span>
-        <span>M-Powered Education</span>
+        <span class="site-brand-text">M-Powered Education</span>
       </a>
-      <nav class="site-nav">
-        <a href="https://iep.mpowerededucation.com/" class="nav-link" data-subdomain="iep">Goal Architect</a>
-        <a href="https://sdi.mpowerededucation.com/" class="nav-link" data-subdomain="sdi">SDI Engine</a>
-        <a href="https://data.mpowerededucation.com/" class="nav-link" data-subdomain="data">Data Utility</a>
+      <nav class="site-nav" aria-label="M-Powered workspaces">
+        <!-- Subdomain switcher — .active applied by unified-nav script -->
+        <a href="https://iep.mpowerededucation.com/"      class="nav-link" data-subdomain="iep">Goal Architect</a>
+        <a href="https://sdi.mpowerededucation.com/"      class="nav-link" data-subdomain="sdi">SDI Engine</a>
+        <a href="https://data.mpowerededucation.com/"     class="nav-link" data-subdomain="data">Data Utility</a>
         <a href="https://caseload.mpowerededucation.com/" class="nav-link" data-subdomain="caseload">Caseload</a>
         <div class="nav-divider"></div>
-        <a href="#" class="nav-link" id="nav-profile">Profile</a>
-        <button type="button" class="btn-ghost" onclick="logout()">Sign Out</button>
+        <!-- Session identity — populated from sessionStorage by page script -->
+        <span class="text-xs font-mono text-slate-400 px-2" id="userEmailBadge">loading_session...</span>
+        <!-- User actions -->
+        <a href="#" class="nav-link" id="nav-profile" title="Profile — coming soon">Profile</a>
+        <button type="button" class="btn-ghost" onclick="logout()" aria-label="Sign out">Sign Out</button>
       </nav>
     </div>
   </header>
 
   <script>
+    // ── Unified nav: active state + universal logout ──────────────
     (function () {
+      'use strict';
       var sub = window.location.hostname.split('.')[0];
       var links = document.querySelectorAll('.site-nav .nav-link[data-subdomain]');
-      links.forEach(link => {
-        if (link.getAttribute('data-subdomain') === sub) link.classList.add('active');
-      });
+      for (var i = 0; i < links.length; i++) {
+        if (links[i].getAttribute('data-subdomain') === sub) {
+          links[i].classList.add('active');
+          links[i].setAttribute('aria-current', 'page');
+        }
+      }
     })();
     function logout() {
-      try { sessionStorage.clear(); localStorage.clear(); } catch(e) {}
-      document.cookie = 'mp_session=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.mpowerededucation.com;';
+      // Universal sign-out: clear every client-side auth artifact,
+      // then land on the main dashboard (its guard takes over from
+      // there if re-authentication is required).
+      try { localStorage.clear(); }   catch (e) {}
+      try { sessionStorage.clear(); } catch (e) {}
+      document.cookie = 'mp_session=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.mpowerededucation.com; Secure; SameSite=Lax';
       window.location.href = 'https://www.mpowerededucation.com/dashboard.html';
     }
   </script>
-  <!-- ═══ END NAV ═══ -->
 
   <!-- ════════════════════════════════════════════════════════
        MAIN CONTENT
