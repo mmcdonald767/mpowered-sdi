@@ -629,6 +629,97 @@
     // (Deploy → New deployment → Web app → copy URL).
     const GAS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbz4YTW46DN8u3bbvc_6n4PpzswBBCBdmoIfa_mXEPLhTly-1EDlHWPiQqpfBLQIdXic/exec';
 
+    // ── GAS POST helper — beta-gated, single wrapper for this file ──
+    //  Every payload is stamped with the signed-in teacher's email so
+    //  Code.gs's beta gate can authorize the request. Responses
+    //  carrying code 401 (no/unrecognized identity) or 403 (not
+    //  enrolled) are intercepted here — identical contract across
+    //  dashboard.html, modify-student.html, tracker.html, and
+    //  probe-generator.html. All four fetch(GAS_ENDPOINT, ...) call
+    //  sites below now go through this one function.
+    // ── Cross-subdomain session bootstrap ───────────────────────
+    //  sessionStorage never crosses subdomains, so a teacher landing
+    //  here directly starts with an empty local session even though
+    //  they're really signed in. The login page mirrors the
+    //  authenticated email into a mp_session cookie scoped to
+    //  .mpowerededucation.com, which DOES cross subdomains — this
+    //  reads that cookie once per origin and re-derives role/
+    //  displayName fresh via authCheck (never trusts the cookie's
+    //  role, only its email; Code.gs's UserProfiles lookup is the
+    //  actual authority). Best-effort: any failure here just leaves
+    //  the session unhydrated, and the real call that follows falls
+    //  through to its normal 401 handling exactly as before.
+    function _getMpSessionCookie() {
+      const m = document.cookie.match(/(?:^|;\s*)mp_session=([^;]+)/);
+      return m ? decodeURIComponent(m[1]) : null;
+    }
+    async function _bootstrapSession() {
+      if (sessionStorage.getItem('mp_beta_email')) return;
+      const cookieEmail = _getMpSessionCookie();
+      if (!cookieEmail) return;
+
+      try {
+        const res = await fetch(GAS_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'authCheck', userEmail: cookieEmail }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (data && data.authorized) {
+          sessionStorage.setItem('mp_beta_email', cookieEmail);
+          sessionStorage.setItem('mp_beta_role', data.role || '');
+          sessionStorage.setItem('mp_beta_display_name', data.displayName || '');
+          sessionStorage.setItem('mp_beta_auth_time', Date.now().toString());
+        } else {
+          document.cookie = 'mp_session=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.mpowerededucation.com; Secure; SameSite=Lax';
+        }
+      } catch (e) { /* best-effort — the real call's own 401 handling takes over */ }
+    }
+
+    async function gasPost(payload) {
+      payload = payload || {};
+      await _bootstrapSession();
+      payload.userEmail = sessionStorage.getItem('mp_beta_email') || '';
+
+      const res = await fetch(GAS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+
+      // 401 — no/unrecognized identity: stop and force a real
+      // re-authentication at the login gateway.
+      if (data && data.code === 401) {
+        _clearBetaSession();
+        window.location.href = 'https://www.mpowerededucation.com/index.html?error=unauthorized';
+        return new Promise(() => {}); // halt — navigation is underway
+      }
+      // 403 — recognized but not an enrolled beta role.
+      if (data && data.code === 403) {
+        _clearBetaSession();
+        alert('Access Denied: Your account is not enrolled in the closed beta.');
+        throw new Error('Access denied — not enrolled in the closed beta.');
+      }
+      return data;
+    }
+
+    // ── Beta-session cleanup ─────────────────────────────────────
+    //  Called on 401/403 so a rejected auth session never lingers —
+    //  the user is forced through a real re-authentication rather
+    //  than silently retrying with the same stale identity.
+    function _clearBetaSession() {
+      try {
+        sessionStorage.removeItem('oauth_token');
+        sessionStorage.removeItem('mp_beta_email');
+        sessionStorage.removeItem('mp_beta_role');
+        sessionStorage.removeItem('mp_beta_display_name');
+        sessionStorage.removeItem('mp_beta_auth_time');
+      } catch (e) {}
+    }
+
     // Must match ASSET_PAGE_BREAK_TOKEN in Code.gs exactly.
     const PAGE_BREAK_TOKEN = '═══ PAGE BREAK ═══';
 
@@ -820,17 +911,7 @@
       setGenerating(true);
       try {
         // text/plain avoids the CORS preflight that GAS web apps cannot answer.
-        const res = await fetch(GAS_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-
-        if (data.result !== 'success') {
-          renderWorkspaceError(data);
-          return;
-        }
+        const data = await gasPost(payload);
         renderAsset(data.asset, data.fidelity);
       } catch (err) {
         renderWorkspaceError({ error: 'NETWORK_ERROR', detail: 'Could not reach the generation service: ' + err.message });
@@ -1109,12 +1190,7 @@
       };
 
       try {
-        const res = await fetch(GAS_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
+        const data = await gasPost(payload);
         if (data.result !== 'success') {
           renderFormExportResult(null, data);
           return;
@@ -1209,12 +1285,7 @@
       };
 
       try {
-        const res = await fetch(GAS_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
+        const data = await gasPost(payload);
         if (data.result !== 'success') {
           renderSlidesExportResult(null, data);
           return;
@@ -1527,12 +1598,7 @@
       caseloadStatus('Fetching your caseload…');
 
       try {
-        const res = await fetch(GAS_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'getRoster' }),
-        });
-        const data = await res.json();
+        const data = await gasPost({ action: 'getRoster' });
         if (data.result !== 'success') throw new Error(data.error || 'Roster fetch failed.');
 
         const allRows = Array.isArray(data.rows) ? data.rows : [];
