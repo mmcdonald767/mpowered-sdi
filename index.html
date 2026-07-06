@@ -286,13 +286,15 @@
       }
     })();
     function logout() {
-      // Universal sign-out: clear every client-side auth artifact,
-      // then land on the main dashboard (its guard takes over from
-      // there if re-authentication is required).
+      // Universal sign-out — identical across every M-Powered
+      // subdomain: clear origin-specific storage, expire the
+      // domain-wide session cookie (without this, other subdomains
+      // still see an active session via their own cookie-bootstrap
+      // logic), then send the user to the root login page.
       try { localStorage.clear(); }   catch (e) {}
       try { sessionStorage.clear(); } catch (e) {}
       document.cookie = 'mp_session=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.mpowerededucation.com; Secure; SameSite=Lax';
-      window.location.href = 'https://www.mpowerededucation.com/dashboard.html';
+      window.location.href = 'https://www.mpowerededucation.com/index.html';
     }
   </script>
 
