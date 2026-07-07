@@ -81,6 +81,61 @@
       margin-bottom: 0.4rem;
     }
     .field-hint { font-size: 0.72rem; color: #64748b; margin-top: 0.3rem; }
+
+    /* ── Goal preview list — replaces the native <select> for goal
+       choice, since <option> text can never wrap in any browser
+       regardless of truncation length. This gives a real multi-line,
+       expandable preview instead. ── */
+    .goal-list {
+      max-height: 280px;
+      overflow-y: auto;
+      border: 1px solid #2e3650;
+      border-radius: 8px;
+      background: #1e2335;
+    }
+    .goal-list-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #2e3650;
+      padding: 0.65rem 0.85rem;
+      cursor: pointer;
+      color: #d7ddf0;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      white-space: normal;
+      word-break: break-word;
+      transition: background .12s;
+    }
+    .goal-list-item:last-child { border-bottom: none; }
+    .goal-list-item:hover { background: rgba(108,143,255,0.08); }
+    .goal-list-item.is-selected {
+      background: rgba(108,143,255,0.14);
+      box-shadow: inset 3px 0 0 #6c8fff;
+    }
+    .goal-list-item .goal-list-num {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #6c8fff;
+      margin-bottom: 0.2rem;
+    }
+    .goal-list-item .goal-list-meta {
+      display: block;
+      font-size: 0.72rem;
+      color: #7d8fb3;
+      margin-top: 0.3rem;
+    }
+    .goal-list-empty {
+      padding: 0.85rem;
+      font-size: 0.78rem;
+      color: #7d8fb3;
+      text-align: center;
+    }
     .section-divider { border: none; border-top: 1px solid #252c42; margin: 1.5rem 0; }
     
     .btn-primary {
@@ -335,7 +390,16 @@
             <button type="button" class="btn-secondary !text-xs whitespace-nowrap" id="loadRosterBtn"
                     onclick="loadCaseload(true)">Load Caseload</button>
           </div>
-          <select id="goalSelect" class="field hidden mb-2"></select>
+          <!-- Kept as a pure state-holder (value + hidden/visible
+               signal) for existing code elsewhere that reads
+               $('goalSelect').value and .classList.contains('hidden')
+               — never shown to the user. The visible picker is the
+               wrapped-text list below, which drives this element's
+               value and dispatches its change event. -->
+          <select id="goalSelect" class="field hidden mb-2" style="display:none;"></select>
+          <div id="goalListWrap" class="hidden mb-2">
+            <div id="goalList" class="goal-list" role="listbox" aria-label="Goals on file for this student"></div>
+          </div>
           <p class="field-hint" id="caseloadStatus">Pick a student to pull their goals on file — or skip this and paste a goal below.</p>
         </div>
 
@@ -1648,10 +1712,14 @@
     function onStudentChange() {
       const idx = $('studentSelect').value;
       const goalSel = $('goalSelect');
+      const goalListWrap = $('goalListWrap');
+      const goalList = $('goalList');
       goalSel.innerHTML = '';
+      goalList.innerHTML = '';
 
       if (idx === '' || !_rosterRows || !_rosterRows[idx]) {
         goalSel.classList.add('hidden');
+        goalListWrap.classList.add('hidden');
         caseloadStatus('Pick a student to pull their goals on file — or skip this and paste a goal below.');
         return;
       }
@@ -1689,14 +1757,62 @@
       goals.forEach((g, i) => {
         const o = document.createElement('option');
         o.value = String(i);
-        const preview = (g.description || g.sdiStrategy).slice(0, 90);
+        const preview = (g.description || g.sdiStrategy || '').slice(0, 90);
         o.textContent = 'Goal ' + (i + 1) + ' — ' + preview + (preview.length === 90 ? '…' : '');
         goalSel.appendChild(o);
       });
       goalSel._goals = goals;
 
+      // Visible picker: full, untruncated, wrapped text — this is
+      // what the teacher actually reads and clicks. Selecting a row
+      // sets the hidden select's value and fires its change event,
+      // so onGoalChange() (below) runs completely unmodified.
+      goalListWrap.classList.remove('hidden');
+      if (!goals.length) {
+        const empty = document.createElement('div');
+        empty.className = 'goal-list-empty';
+        empty.textContent = 'No goals on file for this student — paste one below.';
+        goalList.appendChild(empty);
+      } else {
+        goals.forEach((g, i) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'goal-list-item';
+          item.setAttribute('role', 'option');
+          item.dataset.index = String(i);
+
+          const num = document.createElement('span');
+          num.className = 'goal-list-num';
+          num.textContent = 'Goal ' + (i + 1);
+          item.appendChild(num);
+
+          const desc = document.createElement('span');
+          desc.textContent = g.description || g.sdiStrategy || '(no description on file)';
+          item.appendChild(desc);
+
+          const metaParts = [];
+          if (g.target)      metaParts.push('Target: ' + g.target);
+          if (g.sdiStrategy) metaParts.push('SDI: ' + g.sdiStrategy + (g.sdiDetail ? ' (' + g.sdiDetail + ')' : ''));
+          if (metaParts.length) {
+            const meta = document.createElement('span');
+            meta.className = 'goal-list-meta';
+            meta.textContent = metaParts.join('  ·  ');
+            item.appendChild(meta);
+          }
+
+          item.addEventListener('click', () => {
+            goalList.querySelectorAll('.goal-list-item').forEach(el => el.classList.remove('is-selected'));
+            item.classList.add('is-selected');
+            goalSel.value = String(i);
+            goalSel.dispatchEvent(new Event('change'));
+          });
+
+          goalList.appendChild(item);
+        });
+      }
+
       caseloadStatus(goals.length
-        ? 'Selecting a goal fills the blueprint below — you can still edit it before generating.'
+        ? 'Click a goal below to fill the blueprint below — you can still edit it before generating.'
         : 'This student has no goals stored yet.', goals.length ? 'ok' : 'error');
     }
 
