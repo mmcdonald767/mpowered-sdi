@@ -464,9 +464,14 @@
           <input type="file" id="pdfFileInput" accept="application/pdf,.pdf" class="hidden" />
           <p id="pdfStatus" class="field-hint hidden mb-2"></p>
 
-          <textarea id="curriculumSource" class="field font-sans text-[0.875rem] !h-48" 
-                    placeholder="Paste grade-level textbook passages, assignment questions, or worksheet instructions here..."></textarea>
-          <p class="field-hint">The core curriculum sample that needs to be specialized for the student. If you dropped a PDF, review the extracted text here — this exact text is what the protocol reproduces verbatim.</p>
+          <textarea id="curriculumSource" class="field font-sans text-[0.875rem] !h-48"
+                    maxlength="7000"
+                    placeholder="Paste grade-level textbook passages, assignment questions, or worksheet instructions here..."
+                    oninput="updateSourceCharCount()"></textarea>
+          <div class="flex items-center justify-between mt-1 gap-2">
+            <p class="field-hint mb-0">The core curriculum sample that needs to be specialized for the student. If you dropped a PDF, review the extracted text here — this exact text is what the protocol reproduces verbatim.</p>
+            <p class="field-hint mb-0 shrink-0 font-mono" id="sourceCharCount" aria-live="polite">0 / 7,000</p>
+          </div>
         </div>
 
         <!-- Asset context inputs -->
@@ -540,6 +545,9 @@
           </select>
         </div>
 
+        <p class="field-hint text-center mb-2" style="color:#4a5578;">
+          Beta Quota: Up to 80 asset generations per month &mdash; max 7,000 characters per submission.
+        </p>
         <button class="btn-primary w-100" id="generateSdiBtn" onclick="generateSdiScaffold()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
             <polygon points="5 3 19 12 5 21 5 3"/>
@@ -945,12 +953,43 @@
      * route, posts to the GAS generateAsset action, and renders the
      * validated asset (or a structured error) in the workspace.
      */
+    // ── Character counter for the curriculumSource textarea ──────────
+    //  Called on every input event; also invoked after PDF extraction
+    //  lands in the box. Clamps the displayed count to SOURCE_CHAR_LIMIT
+    //  and applies a warning colour when the user is near or at the cap.
+    function updateSourceCharCount() {
+      const box    = $('curriculumSource');
+      const label  = $('sourceCharCount');
+      if (!box || !label) return;
+
+      // Enforce hard ceiling even if maxlength is bypassed (e.g. by paste
+      // into a programmatically-set .value rather than a user keypress).
+      if (box.value.length > SOURCE_CHAR_LIMIT) {
+        box.value = box.value.slice(0, SOURCE_CHAR_LIMIT);
+      }
+
+      const count  = box.value.length;
+      const pct    = count / SOURCE_CHAR_LIMIT;
+      label.textContent = count.toLocaleString() + ' / 7,000';
+      label.style.color = pct >= 1 ? '#f87171'   // red — at cap
+                        : pct >= 0.85 ? '#fbbf24' // amber — near cap
+                        : '#64748b';              // default slate
+    }
+
     async function generateSdiScaffold() {
       const goal = $('iepGoal').value.trim();
       const curriculum = $('curriculumSource').value.trim();
 
       if (!curriculum) {
         alert('Paste the raw curriculum source content — it is the material the protocol transforms.');
+        return;
+      }
+
+      // Client-side hard cap — defence-in-depth alongside the textarea
+      // maxlength and the server-side guard in Code.gs.
+      if (curriculum.length > SOURCE_CHAR_LIMIT) {
+        alert('The curriculum text is ' + curriculum.length.toLocaleString() + ' characters — over the 7,000-character limit. Trim it to the most relevant excerpt before generating.');
+        $('curriculumSource').focus();
         return;
       }
 
@@ -978,7 +1017,14 @@
       try {
         // text/plain avoids the CORS preflight that GAS web apps cannot answer.
         const data = await gasPost(payload);
-        renderAsset(data.asset, data.fidelity);
+        // Structured errors (quota, modification gate, etc.) arrive as
+        // result:'error' inside a 200 envelope — route them to the error
+        // renderer rather than trying to unpack a missing .asset.
+        if (data.result === 'error') {
+          renderWorkspaceError(data);
+        } else {
+          renderAsset(data.asset, data.fidelity);
+        }
       } catch (err) {
         renderWorkspaceError({ error: 'NETWORK_ERROR', detail: 'Could not reach the generation service: ' + err.message });
       } finally {
@@ -988,31 +1034,39 @@
 
     /**
      * renderWorkspaceError(data)
-     * The MODIFICATION_REQUIRED gate gets a distinct explanatory card;
-     * everything else renders as a generic failure card.
+     * Three distinct card styles:
+     *   QUOTA_EXCEEDED      — amber, usage-limit explanation
+     *   MODIFICATION_REQUIRED — amber, modification-gate explanation
+     *   everything else     — red, generic failure
      */
     function renderWorkspaceError(data) {
       clearWorkspace();
       const box = $('workspaceError');
       box.classList.remove('hidden');
 
-      const isModGate = data.error === 'MODIFICATION_REQUIRED';
-      const card = el('div', 'border rounded-12 p-4');
-      card.style.borderColor = isModGate ? 'rgba(251,191,36,0.5)' : 'rgba(248,113,113,0.5)';
-      card.style.background  = isModGate ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)';
+      const isModGate   = data.error === 'MODIFICATION_REQUIRED';
+      const isQuota     = data.error === 'QUOTA_EXCEEDED';
+      const isAmber     = isModGate || isQuota;
 
+      const card = el('div', 'border rounded-12 p-4');
+      card.style.borderColor = isAmber ? 'rgba(251,191,36,0.5)' : 'rgba(248,113,113,0.5)';
+      card.style.background  = isAmber ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)';
+
+      const headingText = isQuota     ? '⚠ Monthly quota reached'
+                        : isModGate   ? '⚠ Modification authorization required'
+                        :               '✕ Generation failed';
       card.appendChild(el(
         'p',
-        'text-xs font-bold uppercase tracking-wider mb-1 ' + (isModGate ? 'text-amber-400' : 'text-red-400'),
-        isModGate ? '⚠ Modification authorization required' : '✕ Generation failed'
+        'text-xs font-bold uppercase tracking-wider mb-1 ' + (isAmber ? 'text-amber-400' : 'text-red-400'),
+        headingText
       ));
-      card.appendChild(el(
-        'p',
-        'text-xs text-slate-300 leading-relaxed',
-        isModGate
+
+      const bodyText = isQuota
+        ? (data.detail || 'You have reached your monthly limit of 80 asset generations. Your quota resets at the start of next month. Contact your M-Powered administrator if you need an increase.')
+        : isModGate
           ? 'This transformation would change content difficulty or expectations, and "Allow Modification" is off — the asset was blocked server-side. If the IEP team has authorized modified content for this student, enable "Allow Modification" and regenerate. Otherwise, adjust the request so the content can be scaffolded at its original rigor.'
-          : ((data.detail || data.error || 'Unknown error.'))
-      ));
+          : (data.detail || data.error || 'Unknown error.');
+      card.appendChild(el('p', 'text-xs text-slate-300 leading-relaxed', bodyText));
       box.appendChild(card);
     }
 
@@ -1439,7 +1493,7 @@
     //  Known limitation (surfaced in the UI): scanned/image-only PDFs
     //  have no text layer and cannot be extracted without OCR.
 
-    const SOURCE_CHAR_LIMIT = 20000; // mirrors the Code.gs guard
+    const SOURCE_CHAR_LIMIT = 7000; // mirrors the Code.gs guard; hard cap per generation
 
     function pdfStatusMsg(text, tone) {
       const s = $('pdfStatus');
@@ -1497,13 +1551,16 @@
           pdfStatusMsg('Extraction cancelled — existing text kept.', 'warn');
           return;
         }
-        box.value = fullText;
+        // Clamp extracted text to the hard cap before placing it in the box.
+        box.value = fullText.length > SOURCE_CHAR_LIMIT ? fullText.slice(0, SOURCE_CHAR_LIMIT) : fullText;
+        updateSourceCharCount();
         _sourceDocName = file.name.replace(/\.pdf$/i, '').trim();
 
         if (fullText.length > SOURCE_CHAR_LIMIT) {
           pdfStatusMsg('Extracted ' + pdf.numPages + ' page(s), ' + fullText.length.toLocaleString() +
             ' characters — over the ' + SOURCE_CHAR_LIMIT.toLocaleString() +
-            '-character limit. Trim to the relevant excerpt below before generating.', 'warn');
+            '-character limit. Trim to the relevant excerpt below before generating. Only the first ' +
+            SOURCE_CHAR_LIMIT.toLocaleString() + ' characters will be accepted.', 'warn');
         } else {
           pdfStatusMsg('Extracted ' + pdf.numPages + ' page(s), ' + fullText.length.toLocaleString() +
             ' characters from "' + file.name + '". Review and clean up below — headers, footers, and page numbers often need deleting.', 'ok');
