@@ -1769,6 +1769,35 @@
       caseloadStatus(rows.length + ' student(s) loaded.', 'ok');
     }
 
+    /**
+     * autoSelectStudentFromUrl(tag, sid)
+     * Called after the roster loads when the page was opened from a
+     * "Generate Asset" deep link (?student=<Tag>&sid=<DatabaseID>), e.g.
+     * from data.mpowerededucation.com's Data Utility or Caseload triage.
+     * Matches the roster row by Tag first (FERPA-safe join key), falling
+     * back to DatabaseID, then programmatically selects it so the teacher
+     * never has to re-pick a student they already selected upstream.
+     */
+    function autoSelectStudentFromUrl(tag, sid) {
+      if (!_rosterRows || !_rosterRows.length) return;
+      if (!tag && !sid) return;
+
+      var idx = -1;
+      if (tag) {
+        idx = _rosterRows.findIndex(function(row) { return String(row[COL_TAG] || '').trim() === tag; });
+      }
+      if (idx === -1 && sid) {
+        idx = _rosterRows.findIndex(function(row) { return String(row[COL_ID] || '').trim() === sid; });
+      }
+      if (idx === -1) {
+        caseloadStatus('Could not match the student passed in from the link — pick one manually.', 'error');
+        return;
+      }
+
+      $('studentSelect').value = String(idx);
+      onStudentChange();
+    }
+
     function onStudentChange() {
       const idx = $('studentSelect').value;
       const goalSel = $('goalSelect');
@@ -1910,6 +1939,17 @@
       ['acc-graphic', 'acc-frames', 'acc-tts', 'acc-vocab', 'contentType', 'modalityIntent'].forEach(id => {
         $(id).addEventListener('change', refreshProtocolRoute);
       });
+
+      // Deep-link from data.mpowerededucation.com's "Generate Asset" /
+      // "Log Data"-style buttons: ?student=<Tag>&sid=<DatabaseID>.
+      // Auto-load the caseload (cache-first) and select the matching
+      // student so the teacher isn't asked to pick them again.
+      var urlParams = new URLSearchParams(window.location.search);
+      var urlTag = (urlParams.get('student') || '').trim();
+      var urlSid = (urlParams.get('sid') || '').trim();
+      if (urlTag || urlSid) {
+        loadCaseload(false).then(function() { autoSelectStudentFromUrl(urlTag, urlSid); });
+      }
     });
   </script>
 </body>
