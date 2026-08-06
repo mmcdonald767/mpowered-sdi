@@ -54,6 +54,29 @@
     ::-webkit-scrollbar-track { background: #171b26; }
     ::-webkit-scrollbar-thumb { background: #717ca8; border-radius: 3px; }
 
+    /* ── M-branded processing indicator: rotating brand-gradient ring around the logo badge ── */
+    .mp-loader-spin { position: relative; width: 44px; height: 44px; flex-shrink: 0; }
+    .mp-loader-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0%, #6c8fff 16%, #3b5bdb 42%, transparent 58%);
+      -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+              mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+      animation: mp-spin 1.15s linear infinite;
+    }
+    .mp-loader-badge {
+      position: absolute; inset: 0; margin: auto; width: 24px; height: 24px;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #3b5bdb 0%, #6c8fff 100%); border-radius: 28%;
+      color: #fff; font-weight: 800; font-size: 0.78rem;
+    }
+    @keyframes mp-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .mp-loader-ring { animation: none; opacity: 0.55; } }
+    .mp-loader-note {
+      font-size: 0.72rem; color: #7d8fb3; line-height: 1.5; max-width: 34ch; text-align: center;
+      opacity: 0; max-height: 0; overflow: hidden; transition: opacity 0.4s ease;
+    }
+    .mp-loader-note.visible { opacity: 1; max-height: 3em; }
+
     .field {
       width: 100%;
       background: #1e2335;
@@ -576,6 +599,14 @@
               </svg>
               <p class="text-xs text-slate-400 max-w-xs">Configure the context, paste the general curriculum text, and click <strong>Generate Specialized SDI</strong> to review modified materials here.</p>
             </div>
+            <div id="sdiLoadingState" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center p-6 gap-3">
+              <div class="mp-loader-spin">
+                <div class="mp-loader-ring"></div>
+                <div class="mp-loader-badge">M</div>
+              </div>
+              <p class="text-xs text-slate-300 font-semibold">Structuring SDI scaffold&hellip;</p>
+              <p class="mp-loader-note" id="sdiLoadingNote">Still working &mdash; quality checks can take up to a minute for complex requests.</p>
+            </div>
             <div id="assetMetaBar" class="hidden mb-4 no-print"></div>
             <div id="printRegion" class="hidden"></div>
             <div id="workspaceError" class="hidden no-print"></div>
@@ -944,10 +975,20 @@
       _currentAsset = null;
     }
 
+    let _sdiPatienceTimer = null; // reveals the "still working" note if generation runs past 12s
+
     function setGenerating(on) {
       const btn = $('generateSdiBtn');
       btn.disabled = on;
       btn.querySelector('span').textContent = on ? 'Generating asset…' : 'Generate Specialized SDI';
+
+      $('sdiEmptyState').style.display = on ? 'none' : $('sdiEmptyState').style.display;
+      $('sdiLoadingState').classList.toggle('hidden', !on);
+      clearTimeout(_sdiPatienceTimer);
+      $('sdiLoadingNote').classList.remove('visible');
+      if (on) {
+        _sdiPatienceTimer = setTimeout(() => $('sdiLoadingNote').classList.add('visible'), 12000);
+      }
     }
 
     /**
