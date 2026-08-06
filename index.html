@@ -16,7 +16,7 @@
               800: '#171b26',
               700: '#1e2335',
               600: '#252c42',
-              500: '#2e3650',
+              500: '#717ca8',
             },
             accent: {
               DEFAULT: '#6c8fff',
@@ -52,12 +52,12 @@
     }
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: #171b26; }
-    ::-webkit-scrollbar-thumb { background: #2e3650; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: #717ca8; border-radius: 3px; }
 
     .field {
       width: 100%;
       background: #1e2335;
-      border: 1px solid #2e3650;
+      border: 1px solid #717ca8;
       color: #f1f5f9;
       border-radius: 8px;
       padding: 0.6rem 0.9rem;
@@ -69,7 +69,7 @@
       border-color: #6c8fff;
       box-shadow: 0 0 0 3px rgba(108,143,255,0.22);
     }
-    .field::placeholder { color: #4a5578; }
+    .field::placeholder { color: #8b96bf; }
     
     .field-label {
       display: block;
@@ -89,7 +89,7 @@
     .goal-list {
       max-height: 280px;
       overflow-y: auto;
-      border: 1px solid #2e3650;
+      border: 1px solid #717ca8;
       border-radius: 8px;
       background: #1e2335;
     }
@@ -99,7 +99,7 @@
       text-align: left;
       background: transparent;
       border: none;
-      border-bottom: 1px solid #2e3650;
+      border-bottom: 1px solid #717ca8;
       padding: 0.65rem 0.85rem;
       cursor: pointer;
       color: #d7ddf0;
@@ -127,13 +127,13 @@
     .goal-list-item .goal-list-meta {
       display: block;
       font-size: 0.72rem;
-      color: #7d8fb3;
+      color: #9aa5cc;
       margin-top: 0.3rem;
     }
     .goal-list-empty {
       padding: 0.85rem;
       font-size: 0.78rem;
-      color: #7d8fb3;
+      color: #9aa5cc;
       text-align: center;
     }
     .section-divider { border: none; border-top: 1px solid #252c42; margin: 1.5rem 0; }
@@ -167,7 +167,7 @@
       color: #94a3b8;
       font-weight: 500;
       font-size: 0.8rem;
-      border: 1px solid #2e3650;
+      border: 1px solid #717ca8;
       border-radius: 8px;
       padding: 0.5rem 1rem;
       cursor: pointer;
@@ -180,7 +180,7 @@
 
     .checkbox-card {
       background: #1e2335;
-      border: 1px solid #2e3650;
+      border: 1px solid #717ca8;
       border-radius: 8px;
       padding: 0.75rem;
       display: flex;
@@ -199,7 +199,7 @@
     .site-brand { display: inline-flex; align-items: center; gap: 0.55rem; font-size: 0.95rem; font-weight: 700; color: #e8ecf4; white-space: nowrap; flex-shrink: 0; text-decoration: none; }
     .site-logo-fallback { width: 28px; height: 28px; border-radius: 7px; background: linear-gradient(135deg,#3b5bdb 0%,#6c8fff 100%); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
     .site-nav { display: flex; align-items: center; gap: 0.25rem; }
-    .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; font-weight: 600; color: #7d8fb3; text-decoration: none; padding: 0.35rem 0.8rem; border-radius: 6px; transition: color 0.13s, background 0.13s; background: transparent; border: none; cursor: pointer; }
+    .nav-link { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; font-weight: 600; color: #9aa5cc; text-decoration: none; padding: 0.35rem 0.8rem; border-radius: 6px; transition: color 0.13s, background 0.13s; background: transparent; border: none; cursor: pointer; }
     .nav-link:hover { color: #e8ecf4; background: rgba(255,255,255,0.05); }
     .nav-link.danger:hover { color: #f87171; background: rgba(248,113,113,0.08); }
     .nav-divider { width: 1px; height: 18px; background: #252c42; margin: 0 0.5rem; flex-shrink: 0; }
@@ -210,7 +210,7 @@
     .nav-link.active { color: #6c8fff; background: rgba(108,143,255,0.1); box-shadow: inset 0 0 0 1px rgba(108,143,255,0.35); }
     .btn-ghost {
       font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 600;
-      color: #7d8fb3; background: transparent; border: 1px solid #252c42; border-radius: 6px;
+      color: #9aa5cc; background: transparent; border: 1px solid #252c42; border-radius: 6px;
       padding: 0.35rem 0.9rem; cursor: pointer; white-space: nowrap; flex-shrink: 0;
       transition: color 0.13s, border-color 0.13s, background 0.13s;
     }
@@ -218,15 +218,15 @@
     @media (max-width: 760px) { .site-brand-text { display: none; } }
 
     /* ── Page header + FERPA line — matches probe-generator.html ── */
-    .page-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #4a5578; margin-bottom: 0.3rem; }
+    .page-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #8b96bf; margin-bottom: 0.3rem; }
     .page-title { font-size: 1.4rem; font-weight: 700; color: #e8ecf4; margin: 0 0 0.25rem; }
-    .page-subtitle { font-size: 0.85rem; color: #7d8fb3; line-height: 1.55; margin: 0 0 0.75rem; }
+    .page-subtitle { font-size: 0.85rem; color: #9aa5cc; line-height: 1.55; margin: 0 0 0.75rem; }
     .ferpa-notice { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.67rem; font-weight: 600; letter-spacing: 0.06em; color: #34d399; border: 1px solid rgba(52,211,153,0.28); border-radius: 20px; padding: 0.2rem 0.6rem; background: rgba(52,211,153,0.06); flex-shrink: 0; }
-    .ferpa-line { display: flex; align-items: flex-start; gap: 0.55rem; margin-bottom: 0.5rem; font-size: 0.78rem; color: #4a5578; line-height: 1.5; }
+    .ferpa-line { display: flex; align-items: flex-start; gap: 0.55rem; margin-bottom: 0.5rem; font-size: 0.78rem; color: #8b96bf; line-height: 1.5; }
 
     /* ── Protocol route blurb ── */
-    .protocol-blurb { font-size: 0.72rem; color: #7d8fb3; line-height: 1.5; margin-top: 0.35rem; }
-    .protocol-blurb .code-tag { font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; color: #4a5578; }
+    .protocol-blurb { font-size: 0.72rem; color: #9aa5cc; line-height: 1.5; margin-top: 0.35rem; }
+    .protocol-blurb .code-tag { font-family: 'JetBrains Mono', monospace; font-size: 0.62rem; color: #8b96bf; }
     .builds-line { display: block; font-size: 0.62rem; color: rgba(108,143,255,0.75); margin-top: 0.2rem; }
 
     /* ── PDF dropzone ─────────────────────────────────────── */
@@ -235,7 +235,7 @@
       align-items: center;
       justify-content: center;
       gap: 0.6rem;
-      border: 1.5px dashed #2e3650;
+      border: 1.5px dashed #717ca8;
       border-radius: 8px;
       background: #171b26;
       color: #64748b;
@@ -257,7 +257,7 @@
     /* ── Asset Factory: workspace + print styles ────────────── */
     .asset-page {
       background: #171b26;
-      border: 1px solid #2e3650;
+      border: 1px solid #717ca8;
       border-radius: 10px;
       padding: 1.25rem 1.4rem;
       margin-bottom: 1rem;
@@ -545,7 +545,7 @@
           </select>
         </div>
 
-        <p class="field-hint text-center mb-2" style="color:#4a5578;">
+        <p class="field-hint text-center mb-2" style="color:#8b96bf;">
           Beta Quota: Up to 80 asset generations per month &mdash; max 7,000 characters per submission.
         </p>
         <button class="btn-primary w-100" id="generateSdiBtn" onclick="generateSdiScaffold()">
