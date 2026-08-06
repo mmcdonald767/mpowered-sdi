@@ -1940,16 +1940,18 @@
         $(id).addEventListener('change', refreshProtocolRoute);
       });
 
+      // Auto-load the caseload on page load (cache-first, same data
+      // loadRosterBtn's "Refresh" fetches) so the picker is ready
+      // without the teacher pressing "Load Caseload" first.
+      //
       // Deep-link from data.mpowerededucation.com's "Generate Asset" /
       // "Log Data"-style buttons: ?student=<Tag>&sid=<DatabaseID>.
-      // Auto-load the caseload (cache-first) and select the matching
-      // student so the teacher isn't asked to pick them again.
+      // Once the caseload's in, select the matching student so the
+      // teacher isn't asked to pick them again.
       var urlParams = new URLSearchParams(window.location.search);
       var urlTag = (urlParams.get('student') || '').trim();
       var urlSid = (urlParams.get('sid') || '').trim();
-      if (urlTag || urlSid) {
-        loadCaseload(false).then(function() { autoSelectStudentFromUrl(urlTag, urlSid); });
-      }
+      loadCaseload(false).then(function() { autoSelectStudentFromUrl(urlTag, urlSid); });
     });
   </script>
 </body>
